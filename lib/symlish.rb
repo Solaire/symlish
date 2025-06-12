@@ -1,0 +1,6 @@
+require_relative "symlish/cmd"
+require_relative "symlish/config"
+require_relative "symlish/dispatcher"
+require_relative "symlish/link_target"
+require_relative "symlish/utils"
+require_relative "symlish/main"
