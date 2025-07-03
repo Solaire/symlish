@@ -1,6 +1,6 @@
 # 💎 Symlish - Symbolic link manager for dotfiles
 
-![](symlish.png) `symlish` is a Ruby-based command-line tool that helps you manage symbolic links for your dotfiles in a clean, reversible way.
+![](image.png) `symlish` is a Ruby-based command-line tool that helps you manage symbolic links for your dotfiles in a clean, reversible way.
 
 > NOTE
 >
