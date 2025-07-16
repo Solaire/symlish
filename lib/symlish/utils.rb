@@ -1,5 +1,29 @@
 require_relative "config"
 
+def filter_directories(link_targets, options)
+	# ONLY mode: reject keys NOT present in `options.only`
+	unless options.only.empty?
+		return link_targets.reject { |t| !options.only.include?(t.key) }
+	end
+
+	# IGNORE mode: reject keys present in options.ignore
+	unless options.ignore.empty?
+		return link_targets.reject { |t| options.ignore.include?(t.key) }
+	end
+
+	# Return everything
+	return link_targets
+end
+
+def resolve_env_variables(path)
+		return path.gsub(/\$(\w+)/) { |match| ENV[match[1..]] || '' }
+end
+
+def empty?(path)
+		return File.empty?(path) || (File.directory?(path) && Dir.empty?(path))
+end
+
+=begin
 # Return list of all children directories of [root].
 def list_directories(root)
 	puts "🔍 Scanning dotfiles in: #{File.realdirpath(root)}/"
@@ -58,3 +82,4 @@ def filter_directories(root, options)
 
 	return dirs
 end
+=end

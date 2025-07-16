@@ -4,3 +4,5 @@ require_relative "symlish/dispatcher"
 require_relative "symlish/link_target"
 require_relative "symlish/utils"
 require_relative "symlish/main"
+
+Symlish::Main.run

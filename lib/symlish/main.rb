@@ -1,3 +1,5 @@
+require_relative 'config'
+
 module Symlish
 	class Main
 		def self.run
@@ -6,7 +8,8 @@ module Symlish
 				print_usage
 				exit 0
 			end
-			dispatch(action, target_dir, options)
+			config = load_config(target_dir)
+			dispatch(action, config, options)
 			puts "🏁 Goodbye."
 		end
 
@@ -22,7 +25,6 @@ module Symlish
 				
 		        Options:
 		            --dry-run           Simulate operation without making changes
-		            --include x,y,z		List of items to include
 		            --ignore  x,y,z		List of items to ignore
 		            --only    x,y,z		Exclusive list (incompatible with include/ignore)
 		    USAGE
