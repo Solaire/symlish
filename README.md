@@ -1,6 +1,6 @@
 # 💎 Symlish - Symbolic link manager for dotfiles
 
-![](symlish.png) `symlish` is a Ruby-based command-line tool that helps you manage symbolic links for your dotfiles in a clean, reversible way.
+![](image.png) `symlish` is a Ruby-based command-line tool that helps you manage symbolic links for your dotfiles in a clean, reversible way.
 
 > NOTE
 >
@@ -14,25 +14,20 @@ Managing my configuration began with a simple Bash script that quickly grew into
 
 ## How it Works
 
-You provide Symlish with a target directory (your dotfiles root), and a command such as link or unlink. The tool then:
-1. Scans top-level directories (e.g. `bash/`, `git/`, `vscode/`).
-2. For each directory, it looks for:
-   * config files (e.g. `.bashrc`)
-   * config directories (e.g. `.doom.d`)
-3. Creates symlinks in the home directory for matching files/directories.
-4. Backs up existing files (with `.bak` suffix) before linking.
-5. Ignores:
-   * Items listed in `symlish.conf.yaml`
-   * Top-level files (like `README.md`)
-   * Empty file/directories.
-   * Non-configuration files/directories.
+You provide Symlish with a target directory (your dotfiles root), and a command such as link or unlink. The tool with then:
+1. Extract the targets from the `symlish.conf.yaml` configuration file.
+2. Expand the target filepaths to find all target files and directories.
+3. Determine the first suitable destination path for each target group.
+4. Creates symlinks in the destination directory for matching files/directories.
+5. Backs up existing files (with `.bak` suffix) before linking.
 
 ## Features
 
-- Create symbolic links from a dotfiles directory to your home directory.
+- Create symbolic links from a dotfiles directory to a target directory.
+- Determines the best destination path for the config:
+   - e.g. vscode config path is platform-specific. You can provide paths to each platform and symlish will apply the correct one.
 - Automatically backs up existing files (e.g., `.bashrc` ~> `.bashrc.bak`).
 - Restores backups when symlinks are removed.
-- Supports ignore/include filters via a YAML config or command-flag options.
 - Supports `--dry-run` mode for safe preview.
 
 ---
@@ -92,15 +87,13 @@ symlish ~/dotfiles link --dry-run
 | `link`   | Create symlinks                     |
 | `unlink` | Remove symlinks and restore backups |
 | `status` | Show current link status            |
-| `help`   | Show usage help                     |
 
 ## Options
 
 | Option      | Value | Description                                          |
 | ----------- | ----- | ---------------------------------------------------- |
-| `--dry-run` |       | Simulate operation without making changes`           |
+| `--dry-run` |       | Simulate operation without making changes            |
 | `--include` | x,y,z | Only include specified items                         |
-| `--ignore`  | x,y,z | Exclude specified items                              |
 | `--only`    | x,y,z | Include only listed items (overrides include/ignore) |
 
 > NOTE
@@ -109,10 +102,27 @@ symlish ~/dotfiles link --dry-run
 
 ## Configuration
 
-Add a `symlish.conf.yaml` file to your dotfiles directory to ignore specific items globally:
+Add a `symlish.conf.yaml` file to your dotfiles directory:
 ```yaml
-ignore:
-  - .git
-  - fonts
-  - scripts
+link:
+  vscode:
+    target: vscode/*
+    paths:
+      - $APPDATA/Code/
+      - ~/.config/Code/
+  git:
+    target: git/**
+    paths:
+      - ~/
+  emacs:
+    target: emacs/.doom.d
+    ignore: true
+    paths:
+      - ~/
+  bash:
+    target: bash/**
+    paths:
+      - ~/
+    ignore-empty: true
+
 ```

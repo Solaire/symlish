@@ -1,0 +1,20 @@
+link:
+  vscode:
+    target: vscode/*
+    paths:
+      - $APPDATA/Code/
+      - ~/.config/Code/
+  git:
+    target: git/**
+    paths:
+      - ~/
+  emacs:
+    target: emacs/.doom.d
+    ignore: true
+    paths:
+      - ~/
+  bash:
+    target: bash/**
+    paths:
+      - ~/
+    ignore-empty: true

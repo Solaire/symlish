@@ -1,88 +1,49 @@
+require_relative 'link_item'
+
 class LinkTarget
-    attr_reader :name, :rel_path, :abs_path, :link_target, :child
+    attr_reader :key, :path, :ignore 
+    attr_accessor :items, :ignore_empty, :conflict
 
-    def initialize(target_dir, child)
-        @child = child 
-        @name = File.join(File.basename(target_dir), child)
-        @rel_path = File.join(target_dir, child)
-        @abs_path = File.realpath(@rel_path)
-        @link_target = File.join(Dir.home, child)
-    end
+    def initialize(key, data, abs_root)
+        @key            = key
+        @path           = nil
+        @conflict       = data.key?("conflict")     ? data["conflict"]      : "skip"
+        @ignore         = data.key?("ignore")       ? data["ignore"]        : false
+        @ignore_empty   = data.key?("ignore-empty") ? data["ignore-empty"]  : true
 
-    def directory?
-        return File.directory?(@abs_path)
-    end
+        @items = Array.new
 
-    def zero?
-        return File.zero?(@abs_path)
-    end
-
-    def starts_with_dot?
-        return @child[0,1] == "."
-    end
-
-    def link_target_exists?
-        File.file?(@link_target)
-    end
-
-    def backup_path
-        return "#{@link_target}.bak"
-    end
-
-    def backup_exists?
-        return File.file?(backup_path)
-    end
-
-    def symlink?
-        File.symlink?(@link_target)
-    end
-
-    def points_here?
-        return false unless symlink?
-        File.readlink(@link_target) == @abs_path
-    end
-
-    def create_backup(dry_run = false)
-        return unless link_target_exists?
-
-        if dry_run
-            puts "🔁     Would make backup: #{@link_target} ~> #{backup_path}"
-        else
-            File.rename(@link_target, backup_path)
-            puts "🔁     Moved existing file to: #{backup_path}"
+        # Apply default value to "conflict"
+        unless ["skip", "force"].include? @conflict 
+            @conflict = "skip"
         end
-    end
 
-    def restore_backup(dry_run = false)
-        return unless backup_exists?
+        # Look through data["paths"] to find the first valid target path.
+        data["paths"].each do |path|
+            candidate = path.gsub(/\$(\w+)/) do |match|
+                env_var = match[1..] # Extract environment variable (using UNIX-style with the $)
+                ENV[env_var] || ''
+            end
 
-        if dry_run
-            puts "🔁     Would restore backup: #{backup_path} ~> #{@link_target}"
-        else
-            File.rename(backup_path, @link_target)
-            puts "🔁     Restored backup: #{backup_path}.bak ~> #{@link_target}"
+            expanded = File.expand_path(candidate)
+            if File.exist?(expanded)
+                @path = expanded
+                break
+            end
         end
+
+        return if @path.nil?
+
+        
+        # Find all files/directories that we need to target
+        target_root = File.join(abs_root, data["target"])
+        Dir.glob(target_root, File::FNM_DOTMATCH)
+            .reject { |path| File.basename(path) == "." || File.basename(path) == ".."}
+            .each { |item| @items.push LinkItem.new(abs_root, item, @path) }
     end
 
-    def create_symlink(dry_run = false)
-        if dry_run
-            puts "📝     Would link: #{@name} ~> #{@link_target}"
-        else
-            File.symlink(@abs_path, @link_target)
-            puts "✅     Linked: #{@abs_path} → #{@link_target}"
-        end
-    end
-
-    def remove_symlink(dry_run = false)
-        if dry_run
-            puts "🗑️     Would unlink: #{@link_target}"
-        else
-            File.delete(@link_target)
-            puts "🗑️     Unlinked: #{@link_target}"
-        end
-    end
-
-    def readlink
-        return File.readlink(@link_target) if symlink?
+    # Check if the target is valid based on whether we have a target path
+    def valid?
+        return !@path.nil?
     end
 end

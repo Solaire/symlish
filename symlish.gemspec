@@ -1,6 +1,6 @@
 Gem::Specification.new do |spec|
 	spec.name          = "symlish"
-	spec.version       = "0.0.1"
+	spec.version       = "0.2.0"
 	spec.authors       = ["Solaire"]
 	spec.email         = ["22472584+Solaire@users.noreply.github.com"]
 	

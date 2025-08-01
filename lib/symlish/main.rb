@@ -1,16 +1,19 @@
+require_relative 'config'
+
 module Symlish
 	class Main
 		def self.run
 			action, target_dir, options = parse_command_line
 			if action == "help"
-				print_usage
+				self.print_usage
 				exit 0
 			end
-			dispatch(action, target_dir, options)
+			config = load_config(target_dir)
+			dispatch(action, config, options)
 			puts "🏁 Goodbye."
 		end
 
-		def print_usage
+		def self.print_usage
 		    puts <<~USAGE
 		        Usage: #{File.basename($0)} <directory> <command> [options]
 				
@@ -22,7 +25,6 @@ module Symlish
 				
 		        Options:
 		            --dry-run           Simulate operation without making changes
-		            --include x,y,z		List of items to include
 		            --ignore  x,y,z		List of items to ignore
 		            --only    x,y,z		Exclusive list (incompatible with include/ignore)
 		    USAGE
