@@ -38,6 +38,10 @@ def validate_config_entry(entry)
         raise "Invalid config entry: #{entry.inspect}. Each entry must include 'paths'."
     end
 
+    unless entry.key?("target")
+        raise "Invalid config entry: #{entry.inspect}. Each entry must include 'target'."
+    end
+
     unless entry["paths"].is_a?(Array) && entry["paths"].all? { |p| p.is_a?(String) }
         raise "Invalid 'paths' in config entry: #{entry.inspect}. Must be an array of strings."
     end

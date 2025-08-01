@@ -23,6 +23,15 @@ def empty?(path)
 		return File.empty?(path) || (File.directory?(path) && Dir.empty?(path))
 end
 
+def existing?(path)
+		return (File.file?(path) && !File.symlink?(path)) || File.directory?(path)
+end
+
+def file_type(path)
+		return "Directory" if File.directory?(path)
+		return "File"
+end
+
 =begin
 # Return list of all children directories of [root].
 def list_directories(root)

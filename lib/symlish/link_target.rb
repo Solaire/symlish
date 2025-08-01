@@ -1,3 +1,51 @@
+require_relative 'link_item'
+
+class LinkTarget
+    # attr_reader :key, :target, :paths, :conflict, :ignore, :ignore_empty
+    attr_reader :path, :ignore 
+    attr_accessor :items, :ignore_empty, :conflict
+
+    def initialize(data, abs_root)
+        @path           = nil
+        @conflict       = data.key?("conflict")     ? data["conflict"]      : "skip"
+        @ignore         = data.key?("ignore")       ? data["ignore"]        : false
+        @ignore_empty   = data.key?("ignore-empty") ? data["ignore-empty"]  : true
+
+        @items = Array.new
+
+        # Apply default value to "conflict"
+        unless ["skip", "force"].include? @conflict 
+            @conflict = "skip"
+        end
+
+        # Look through data["paths"] to find the first valid target path.
+        data["paths"].each do |path|
+            candidate = path.gsub(/\$(\w+)/) do |match|
+                env_var = match[1..] # Extract environment variable (using UNIX-style with the $)
+                ENV[env_var] || ''
+            end
+
+            expanded = File.expand_path(candidate)
+            if File.exist?(p)
+                @path = expanded
+                break
+            end
+        end
+
+        # Find all files/directories that we need to target
+        target_root = File.join(abs_root, data["target"])
+        Dir.glob(target_root, File::FNM_DOTMATCH)
+            .reject { |path| File.basename(path) == "." || File.basename(path) == ".."}
+            .each { |item| @items.push LinkItem.new(item, @path) }
+    end
+
+    # Check if the target is valid based on whether we have a target path
+    def valid?
+        return !@path.nil?
+    end
+end
+
+=begin
 class LinkTarget
     attr_accessor :key, :target, :target_path, :files, :conflict, :ignore, :ignore_empty
 
@@ -157,7 +205,7 @@ class LinkTarget
         return !@target_path.nil?
     end
 end
-
+=end
 
 
 =begin
@@ -220,7 +268,7 @@ class LinkTarget
         @name = File.join(File.basename(target_dir), child)
         @rel_path = File.join(target_dir, child)
         @abs_path = File.realpath(@rel_path)
-        @link_target = File.join(Dir.home, child)
+    @link_target = File.join(Dir.home, child)
     end
 
     def directory?

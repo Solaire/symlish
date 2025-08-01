@@ -10,7 +10,7 @@ def dispatch(action, config, options)
         if target.ignore
             puts "⚠️     Skipping: ignore flag is true"
         	next
-        elsif !target.target_path?
+        elsif !target.valid?
             puts "⚠️     Skipping: no valid target path specified"
         	next
         end
@@ -26,12 +26,101 @@ end
 
 def do_link(link_target, options)
     link_target.items.each do |item|
+        # Ignore if:
+        # * Source is empty and we ignore empty files/directories
+        # * Symlink and points here (no message)
+        # * Symlink from somewhere else
+        if link_target.ignore_empty && empty?(item.source)
+            puts "⚠️     Skipping #{item.source}: Source file/dir is empty"
+            next
+        elsif item.here?
+            next
+        elsif link_target.conflict == "skip" && item.symlink?
+            puts "⚠️     Skipping #{item.source}: Conflict with another symbolic link"
+            next
+        end
+
+        # Create the backup if required
+        if item.exists? && !item.backup?
+            if options.dry_run
+                puts "🔁     Would make backup: #{item.backup}"
+            else
+                item.create_backup
+                puts "🔁     Moved existing file to: #{item.backup}"
+            end
+        end
+
+        # Create the symlink
+        if options.dry_run
+            puts "📝     Would link: #{item.source} ~> #{item.target}"
+        else
+            item.create_symlink
+            puts "🔗     Linked: #{item.source} ~> #{item.target}"
+        end
+    end
+end
+
+def do_unlink(link_target, options)
+    link_target.items.each do |item|
+        next unless item.here?
+
+        # Remove the symlink
+        if options.dry_run
+            puts "🗑️     Would unlink: #{item.target}"
+        else
+            item.remove_symlink
+            puts "🗑️     Unlinked: #{item.source}"
+        end
+
+        # Restore the backup
+        next unless item.backup?
+        if options.dry_run
+            puts "🔁     Would restore backup: #{item.backup} ~> #{item.target}"
+        else
+            item.restore_backup
+            puts "🔁     Restored backup: #{item.backup} ~> #{item.target}"
+        end
+    end
+end
+
+def do_status(link_target, options)
+    link_target.items.each do |item|
+        # Check backup status
+        if item.backup?
+            puts "🔁     Existing backup: #{item.backup}"
+        end
+
+        # Check symlink
+        if !item.symlink?
+            puts "⚪     #{item.source} (not linked)" 
+        elsif item.here?
+            puts "🔗     #{item.target} ~> #{item.symlink}"
+        else
+            puts "⚠️     #{item.target} ~> #{item.symlink} (not a link to this repo)" 
+        end
+    end
+end
+
+=begin
+def do_link(link_target, options)
+    link_target.items.each do |item|
         # Check if we need to ignore
         # This could be due to: item being empty, conflict, or already being linked
-        next if item.ignore?
+        if empty?(item.source) && link_target.ignore_empty
+            puts "⚠️     Skipping #{item.self}: Source file/dir is empty"
+            next
+        elsif item.symlink?
+            if item.here?
+                puts "⚠️     Skipping #{item.self}: Conflict with another symbolic link"
+                next
+            elsif link_target.conflict == "skip"
+                # puts "⚠️     Skipping #{item.self}: Conflict with another symbolic link"
+                next
+            end
+        end
 
         # Create backup
-        if item.existing?
+        if item.exists? && !item.backup?
             if options.dry_run
                 puts "🔁     Would make backup: #{item.backup}"
             else 
@@ -55,7 +144,7 @@ def do_unlink(link_target, options)
         # Validate that it's a valid symlink
         if item.symlink?
             unless item.here?
-                puts "⚠️     Not unlinking: #{item.self} (not a link to this repo)"
+                puts "⚠️     Skipping #{item.self}: Not a link to this repo"
                 next 
             end
         else 
@@ -102,6 +191,7 @@ def do_status(link_target)
         end
     end
 end
+=end
 
 =begin
 skipped = []
