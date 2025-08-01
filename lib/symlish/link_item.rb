@@ -1,12 +1,17 @@
 require_relative "utils"
+require "pathname"
 
 class LinkItem
-    attr_accessor :source, :target, :backup
+    attr_accessor :root, :source, :abs_source, :target, :backup, :type
 
-    def initialize(source_path, target_path)
-        @source = source_path
-        @target = target_path
+    def initialize(root, source, target)
+        @rel_source = Pathname.new(source).relative_path_from(root)
+
+        @root = Pathname.new(root)
+        @source = source
+        @target = File.join(target, @rel_source.to_s.split(File::SEPARATOR).drop(1).join(File::SEPARATOR)) # Need to exclude the first directory
         @backup = "#{@target}.bak"
+        @type   = File.directory?(@source) ? "directory" : "file"
     end
 
     # <!--
@@ -24,7 +29,17 @@ class LinkItem
     # Returns `true` if file named `"#{@target}.bak"` exists in the target directory, `false` otherwise.
     #
     def backup?
+        puts "backup?: #{@backup}"
         return File.file?(@backup)
+    end
+
+    # <!--
+    #   - LinkItem.can_backup? -> true or false
+    # -->
+    # Returns `true` if @target exists as a file which can be backed up, `false` otherwise.
+    #
+    def can_backup?
+        return File.file?(@target) && !File.symlink?(@target)
     end
 
     # <!--
@@ -34,7 +49,7 @@ class LinkItem
     # Early exit if either target does not exist _or_ the backup exists.
     #
     def create_backup
-        return unless existing?(@target) && !backup?
+        return unless file_dir?(@target) && !backup?
 
         File.rename(@target, @backup)
     end
@@ -46,7 +61,9 @@ class LinkItem
     # Early exit if either target exists _or_ the backup does not exist.
     # 
     def restore_backup
-        return if existing?(@target) || !backup?
+        return if file_dir?(@target) || !backup?
+
+        File.rename(@backup, @target)
     end
 
     # <!--
@@ -72,8 +89,9 @@ class LinkItem
     # -->
     # Creates a symbolic link on @target for the existing file @source.
     # Early exit if @target exists as a file or symbolic link
+    # 
     def create_symlink
-        return if existing?(@target) || File.symlink?(@target) || here?
+        return if file_dir?(@target) || File.symlink?(@target) || here?
         File.symlink(@source, @target)
     end
 
@@ -87,148 +105,4 @@ class LinkItem
         return unless symlink? && here?
         File.delete(@target)
     end
-
-=begin
-    # Backup
-
-    def backup?
-        return File.file?(@backup)
-    end
-
-    def create_backup(dry_run)
-        return unless File.file?(@target) && !backup?
-
-        if dry_run
-            puts "🔁     Would make backup: #{@backup}"
-        else
-            File.rename(@target, @backup)
-            puts "🔁     Moved existing file to: #{@backup}"
-        end
-    end
-
-    def restore_backup(dry_run)
-        return unless backup?
-        
-        if dry_run
-            puts "🔁     Would restore backup: #{@backup} ~> #{@target}"
-        else
-            File.rename(@backup, @target)
-            puts "🔁     Restored backup: #{@backup} ~> #{@target}"
-        end
-    end
-
-    # Symlink
-    
-    def symlink?
-        return File.symlink?(@target)
-    end
-
-    def create_symlink(dry_run)
-       if dry_run
-            puts "📝     Would link: #{@source} ~> #{@target}"
-       else
-            File.symlink(@source, @target)
-            puts "🔗     Linked: #{@source} ~> #{@target}"
-       end
-    end
-
-    def remove_symlink(dry_run)
-        return unless symlink? && here?
-
-        if dry_run
-            puts "🗑️     Would unlink: #{item.self}"
-        else
-            File.delete(@target)
-            puts "🗑️     Unlinked: #{item.self}"
-        end
-    end
-
-    # Util functions
-    
-    def ignore_empty?(ignore_empty)
-        if ignore_empty && empty?(@source)
-            puts "⚠️     Skipping #{@source}: Source #{item_type(@source)} is empty"
-            return true
-        end
-        return false
-    end
-
-    def conflict?(conflict)
-        return false unless symlink?
-        return true if here?
-        
-        if conflict == "skip"
-            puts "⚠️     Skipping #{@source}: Conflict with another symbolic link"
-            return true
-        end
-
-        return false
-    end
-
-    def here?
-        return File.readlink(@target) == @source
-    end
-=end
-
-=begin
-    # Return absolute path to this file/directory
-    def self
-        return @source
-    end
- 
-    # Return absolute path to the target file/directory
-    def target
-        return @target
-    end
-
-    def exists?
-        return File.file?(@target) && !File.symlink?(@target)
-    end
-
-    # Get path to backup
-    def backup
-        return "#{@target}.bak"
-    end
-
-    # Check if backup exists
-    def backup?
-        return File.file?(backup)
-    end
-    
-    # Create backup
-    def make_backup
-        return unless exists?
-
-        File.rename(@target, backup)
-    end
-
-    # Restore the backup
-    def restore_backup
-        return unless backup?
-
-        File.rename(backup, @target)
-    end
-
-    # Check if symbolic link exists
-    def symlink?
-        return File.symlink?(@target)
-    end
-
-    # Check if the symbolic link points to this file
-    def here?
-        return File.readlink(@target) == @source
-    end
-
-    # Create the symbolic link
-    def make_link
-        File.symlink(@source, @target)
-    end
-
-    # Remove the symbolic link
-    def delete_link
-        return unless symlink? && here?
-
-        File.delete(@target)
-    end
-=end
 end

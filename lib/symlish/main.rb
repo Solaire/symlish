@@ -5,7 +5,7 @@ module Symlish
 		def self.run
 			action, target_dir, options = parse_command_line
 			if action == "help"
-				print_usage
+				self.print_usage
 				exit 0
 			end
 			config = load_config(target_dir)
@@ -13,7 +13,7 @@ module Symlish
 			puts "🏁 Goodbye."
 		end
 
-		def print_usage
+		def self.print_usage
 		    puts <<~USAGE
 		        Usage: #{File.basename($0)} <directory> <command> [options]
 				

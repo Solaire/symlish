@@ -6,20 +6,18 @@ def load_config(root)
 
 	unless File.exist?(config_path)
 		raise "Config file #{config_path} does not exist."
-		# return { root: root, link: [] }
 	end
 
     raw = YAML.load_file(config_path)
     unless raw.is_a?(Hash) && raw.key?("link")
         raise "Invalid config data: #{raw}. 'link' block is missing."
-        # return { root: root, link: [] }
     end
 
     targets = []
 	
     # Validate entries and create objects
     raw["link"].map do |entry|
-        validate_config_entry(entry)
+        validate_config_entry(entry[1])
         targets.append(LinkTarget.new(entry[0], entry[1], abs_path))
     end
 
@@ -34,7 +32,7 @@ rescue Psych::SyntaxError => e
 end
 
 def validate_config_entry(entry)
-    unless entry.is_a(Hash) && entry.key?("paths")
+    unless entry.is_a?(Hash) && entry.key?("paths")
         raise "Invalid config entry: #{entry.inspect}. Each entry must include 'paths'."
     end
 
@@ -46,20 +44,15 @@ def validate_config_entry(entry)
         raise "Invalid 'paths' in config entry: #{entry.inspect}. Must be an array of strings."
     end
 
-    unless entry.key?("conflict") && !%w[skip force].include?(entry["conflict"])
+    if entry.key?("conflict") && !%w[skip force].include?(entry["conflict"])
         raise "Invalid 'conflict' value in config entry: #{entry.inspect}. Must be 'skip' or 'force'."
     end
 
-    unless entry.key?("ignore") && ![true, false].include?(entry["ignore"])
+    if entry.key?("ignore") && ![true, false].include?(entry["ignore"])
         raise "Invalid 'ignore' value in config entry #{entry.inspect}. Must be either true or false."
     end
 
-    unless entry.key?("ignore-empty") && ![true, false].include?(entry["ignore-empty"])
+    if entry.key?("ignore-empty") && ![true, false].include?(entry["ignore-empty"])
         raise "Invalid 'ignore-empty' value in config entry #{entry.inspect}. Must be either true or false."
     end
 end
-
-# Dir["/home/kjurczak/git/solaire/symlish/**/*"]
-# Dir["/home/kjurczak/git/solaire/symlish/**/*.rb"]
-# Dir["/home/kjurczak/git/solaire/symlish/**"]
-# Dir["/home/kjurczak/git/solaire/symlish"]
