@@ -1,0 +1,341 @@
+#!/usr/bin/env perl
+
+use strict;
+use warnings;
+
+use Getopt::Long qw(GetOptions);
+use YAML::PP qw(LoadFile);
+use Cwd qw(abs_path);
+use File::Spec;
+use File::Basename qw(basename);
+use File::Glob qw(bsd_glob);
+
+
+sub usage {
+    return <<~'USAGE';
+    Usage: symlish <command> <directory> [options]
+
+    Commands:
+        link      Create symlinks
+        unlink    Remove symlinks
+        status    Show symlink status
+        help      Print this guide
+
+    Options:
+        --dry-run           Simulate operation without making changes
+        --ignore  x,y,z     List of items to ignore
+        --only    x,y,z     Exclusive list (incompatible with include/ignore)
+    USAGE
+}
+
+sub load_config {
+    my ($config_dir) = @_;
+
+    my $abs_config = abs_path(File::Spec->catfile($config_dir, 'symlish.conf.yaml'))
+        or die "Config path $config_dir/'symlish.conf.yaml' does not exist\n";
+
+    my $raw;
+    eval {
+        $raw = LoadFile($abs_config);
+        1; 
+    } or do {
+        die "YAML syntax error $@\n";
+    };
+
+    die "Invalid config data: 'link' block is missing\n"
+        unless ref($raw) eq 'HASH' && exists $raw->{link};
+
+    my @targets;
+
+    while (my ($name, $entry) = each %{ $raw->{link} }) {
+        validate_config_entry($entry);
+
+        push @targets, {
+            name        => $name,
+            entry       => $entry,
+            config_dir  => $config_dir,
+        };
+    }
+
+    return {
+        config_path => $abs_config,
+        config_dir  => $config_dir,
+        link        => \@targets,
+    };
+}
+
+sub validate_config_entry {
+    my ($entry) = @_;
+
+    die "Invalid config entry: must be a mapping.\n"
+        unless ref($entry) eq 'HASH';
+
+    die "Invalid config entry: missing 'paths'.\n"
+        unless exists $entry->{paths};
+
+    die "Invalid config entry: missing 'target'.\n"
+        unless exists $entry->{target};
+
+    if (exists $entry->{conflict} && $entry->{conflict} !~ /^(skip|force)$/) {
+        die "Invalid 'conflict' value. Must be 'skip' or 'force'\n";
+    }
+
+    for my $bool_key (qw(ignore ignore-empty)) {
+        if (exists $entry->{$bool_key}  && ($entry->{$bool_key} ne '0' && $entry->{$bool_key} ne '1')) {
+            die "Invalid '$bool_key' value. Must be true or false.\n";
+        }
+    }
+
+    return 1;
+}
+
+sub file_dir {
+    my ($path) = @_;
+    return (-f $path && !-l $path) || -d $path;
+}
+
+sub empty_path {
+    my ($path) = @_;
+    return -f $path && -z $path
+        || (-d $path && !grep { $_ !~ /^\.\.?$/ } glob("$path/* $path/.*"));
+}
+
+sub build_link_targets {
+    my ($config, $root) = @_;
+    my @targets;
+
+    while (my ($key, $data) = each %{ $config->{link} }) {
+        my $target = {
+            key          => $key,
+            ignore       => $data->{ignore} // 0,
+            ignore_empty => $data->{'ignore-empty'} // 1,
+            conflict     => $data->{conflict} // 'skip',
+            path         => undef,
+            items        => [],
+        };
+
+        # Find first valid path
+        for my $candidate (@{ $data->{paths} }) {
+            $candidate =~ s/\$(\w+)/$ENV{$1} // ''/ge;
+            my $expanded = File::Spec->rel2abs($candidate);
+
+            if (-e $expanded) {
+                $target->{path} = $expanded;
+                last;
+            }
+        }
+
+        next unless $target->{path};
+
+        # Expand glob
+        my $glob_root = File::Spec->catfile($root, $data->{target}) {
+            for my $source (bsd_glob($glob_root, GLOB_DOTMATCH)) {
+                next if basename($source) =~ /^\.\.?$/;
+
+                my $rel = File::Spec->abs2rel($source, $root);
+                my (undef, @parts) = File::Spec->splitdir($rel);
+                my $dest = File::Spec->catfile($target->{path}, @parts);
+
+                push @{ $target->{items} }, {
+                    source => $source,
+                    target => $dest,
+                    backup => "$dest.bak",
+                    type   => (-d $source ? 'directory' : 'file'),
+                };
+            }
+        }
+
+        push @targets, $target;
+    }
+
+    return \@targets;
+}
+
+sub filter_targets {
+    my ($targets, $options) = @_;
+
+    if ($options->{only}) {
+        my %only = map { $_ => 1} @{ $options->{only} };
+        return [ grep {$only{ $_->{key} } } @$targets ];
+    }
+
+    if ($options->{ignore}) {
+        my %ignore = map { $_ => 1} @{ $options->{ignore} };
+        return [ grep { !$ignore{ $_->{key} } } @$targets ];
+    }
+
+    return $targets;
+}
+
+sub do_link {
+    my ($target, $options) = @_;
+
+    for my $item (@{ $target->{items} }) {
+        if ($target->{ignore_empty} && empty_path($item->{source})) {
+            print "⚠️  Skipping empty $item->{source}\n";
+            next;
+        }
+
+        next if here($item);
+
+        # FIXME: Change this in later versions
+        if (-l $item->{target}) {
+            print "⚠️  Conflict: $item->{target}\n";
+            next;
+        }
+
+        if (can_backup($item) && !backup_exists($item)) {
+            if ($options->{'dry-run'}) {
+                print "🔁 Would backup $item->{target}\n";
+            }
+            else {
+                create_backup($item);
+                print "🔁 Backed up $item->{target}\n";
+            }
+        }
+
+        if ($options->{'dry-run'}) {
+            print "📝 Would link $item->{source} → $item->{target}\n";
+        } else {
+            create_symlink($item);
+            print "🔗 Linked $item->{source} → $item->{target}\n";
+        }
+    }
+}
+
+sub do_unlink {
+    my ($target, $options) = @_;
+
+    for my $item (@{ $target->{items} }) {
+        next unless here($item);
+
+        if ($options->{'dry-run'}) {
+            print "🗑️ Would unlink $item->{target}\n";
+        } else {
+            remove_symlink($item);
+            print "🗑️ Unlinked $item->{target}\n";
+        }
+
+        if (backup_exists($item)) {
+            if ($options->{'dry-run'}) {
+                print "🔁 Would restore backup\n";
+            } else {
+                restore_backup($item);
+                print "🔁 Restored backup\n";
+            }
+        }
+    }
+}
+
+sub do_status {
+    my ($target) = @_;
+
+    for my $item (@{ $target->{items} }) {
+
+        print "🔁 Backup exists: $item->{backup}\n"
+            if backup_exists($item);
+
+        if (!-l $item->{target}) {
+            print "⚪ $item->{source} (not linked)\n";
+        }
+        elsif (here($item)) {
+            print "🔗 $item->{target} → $item->{source}\n";
+        }
+        else {
+            print "⚠️ $item->{target} → " . readlink($item->{target}) . "\n";
+        }
+    }
+}
+
+
+sub here {
+    my ($item) = @_;
+    return -l $item->{target}
+        && readlink($item->{target}) eq $item->{source};
+}
+
+sub backup_exists {
+    my ($item) = @_;
+    return -f $item->{backup};
+}
+
+sub can_backup {
+    my ($item) = @_;
+    return -f $item->{target} && !-l $item->{target};
+}
+
+sub create_backup {
+    my ($item) = @_;
+    rename $item->{target}, $item->{backup};
+}
+
+sub restore_backup {
+    my ($item) = @_;
+    rename $item->{backup}, $item->{target};
+}
+
+sub create_symlink {
+    my ($item) = @_;
+    symlink $item->{source}, $item->{target};
+}
+
+sub remove_symlink {
+    my ($item) = @_;
+    unlink $item->{target};
+}
+
+# =================== #
+# --- ENTRY POINT --- #
+# =================== #
+
+# Parse command and target args
+my $action    = shift @ARGV or die usage();
+my $directory = shift @ARGV or die usage();
+
+die "Error: <directory> must be a valid directory path\n" 
+    unless -d $directory;
+
+# Now parse options
+my %options = (
+    'dry-run' => 0,
+);
+
+GetOptions(
+    'dry-run'  => \$options{'dry-run'},
+    'ignore=s' => \$options{ignore},
+    'only=s'   => \$options{only},
+) or die usage();
+
+# Validate options
+if ($options{ignore} && $options{only}) {
+    die "Error: --only and --ignore are mutually exclusive\n";
+}
+
+# Normalise comma-separated lists
+for my $key (qw(ignore only)) {
+    if (defined $options{$key}) {
+        $options{$key} = [ split /\s*,\s*/, $options{$key} ];
+    }
+}
+
+# Load the specified dotfiles config and process
+my $config = load_config($directory);
+my $targets = build_link_targets($config, $config->{config_dir});
+$targets = filter_targets($targets, \%options);
+
+for my $target (@$targets) {
+    print "💎 Processing $target->{key}\n";
+
+    next unless $target->{path};
+    if ($target->{ignore}) {
+        print "⚠️  Skipping: ignore flag is true\n";
+        next;
+    }
+
+    if    ($action eq 'link')   { do_link($target, \%options) }
+    elsif ($action eq 'unlink') { do_unlink($target, \%options) }
+    elsif ($action eq 'status') { do_status($target) }
+    else  { die "Error: Unknown command '$action'\n"}
+}
+
+exit 0;
