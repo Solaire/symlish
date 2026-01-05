@@ -1,2 +1,8 @@
-requires 'YAML::PP';
+# Runtime dependencies
+requires 'YAML::PP', '>= 0.035';
 requires 'Getopt::Long';
+requires 'File::Spec';
+requires 'File::Basename';
+requires 'File::Glob';
+requires 'Cwd';
+requires 'FindBin';
