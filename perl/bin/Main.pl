@@ -1,120 +1,123 @@
 #!/usr/bin/env perl
-#
-# symlish - Symbolic link manager for dotfiles
-#
-# Usage: symlish <command> <directory> [options]
-#
-# This script manages symlinks for your dotfiles using a YAML configuration.
-# Run 'symlish help' for more information.
-#
 
 use strict;
 use warnings;
-use v5.16;
 
 use FindBin qw($RealBin);
 use lib "$RealBin/../lib";
 
-use Symlish::App;
+use Getopt::Long qw(GetOptionsFromArray :config pass_through);
+use Data::Dumper qw(Dumper);
 
-exit Symlish::App->run(@ARGV);
+use Symlish::Config qw(load_config);
+use Symlish::Targets qw(build_targets filter_targets);
+use Symlish::Colour qw(red green yellow blue);
+use Symlish::Commands qw(do_link do_unlink do_status);
 
-__END__
+my $USAGE = <<'USAGE';
+Usage: symlish <command> <directory> [options]
 
-=head1 NAME
+Commands:
+    link      Create symlinks from dotfiles to system locations
+    unlink    Remove symlinks and restore backups
+    status    Show current symlink status
+    help      Display this help message
 
-symlish - Symbolic link manager for dotfiles
+Options:
+    --dry-run           Simulate without making changes
+    --ignore  x,y,z     Comma-separated list of targets to skip
+    --only    x,y,z     Process only these targets (mutually exclusive with --ignore)
 
-=head1 SYNOPSIS
-
-    symlish <command> <directory> [options]
-
-    # Preview what would be linked
-    symlish link ~/dotfiles --dry-run
-
-    # Create symlinks
-    symlish link ~/dotfiles
-
-    # Remove symlinks and restore backups
-    symlish unlink ~/dotfiles
-
-    # Check current status
+Examples:
     symlish status ~/dotfiles
+    symlish link ~/dotfiles --dry-run
+    symlish unlink ~/dotfiles --only git,bash
+USAGE
 
-=head1 DESCRIPTION
+# === COMMAND + DIRECTORY ===
 
-Symlish helps you manage symbolic links for your dotfiles. It reads a
-C<symlish.conf.yaml> file from your dotfiles directory and creates symlinks
-in the appropriate system locations.
+# Parse the command and directory
+my $command   = shift @ARGV;
+my $directory = shift @ARGV;
 
-=head1 COMMANDS
+# Handle help
+if (!$command || $command eq 'help' || $command eq '--help' || $command eq '-h') {
+    print $USAGE;
+    exit 0;
+}
 
-=over 4
+# Validate <command>
+die "ERROR: 'Unknown command '$command'\n"
+    unless $command =~ /^(?:link|unlink|status)$/;
 
-=item B<link>
+# Validate <directory>
+die "ERROR: Missing <directory> argument\n"
+    unless $directory;
 
-Create symlinks for configured targets. Existing files are backed up
-with a C<.bak> suffix.
+die "ERROR: '$directory' is not a valid directory\n"
+    unless -d $directory;
 
-=item B<unlink>
 
-Remove symlinks created by symlish and restore any backups.
+# === OPTIONS ===
 
-=item B<status>
 
-Display the current state of all configured symlinks.
+# Parse the options
+my %options = ('dry-run' => 0);
+GetOptionsFromArray(
+    \@ARGV,
+    'dry-run'   => \$options{'dry-run'},
+    'ignore=s'  => \$options{ignore},
+    'only=s'    => \$options{only},
+) or die $USAGE;
 
-=item B<help>
+# Validate mutually-exclusive options
+die "ERROR: --ignore and --only cannot be used together"
+    if $options{ignore} && $options{only};
 
-Show usage information.
+# Convert comma-separated strings to arrays
+for my $key (qw(ignore only)) {
+    if (defined $options{$key}) {
+        $options{$key} = [ split /\s*,\s*/, $options{$key} ];
+    }
+}
 
-=back
 
-=head1 OPTIONS
+# === LOAD + VALIDATE CONFIG ===
 
-=over 4
 
-=item B<--dry-run>
+# Load and validate config
+my $config = load_config($directory);
 
-Simulate the operation without making changes.
+# Build and filter the targets
+my @targets = build_targets($config);
+@targets = filter_targets(\@targets, \%options);
 
-=item B<--ignore> x,y,z
+# DEBUG: dump config data
+# print '$config' . Dumper($config) . "\n\n";
+# print '@targets' . Dumper(@targets) . "\n\n";
 
-Skip the specified targets (comma-separated).
 
-=item B<--only> x,y,z
+# === PROCESS COMMAND ===
 
-Process only the specified targets (comma-separated).
-Mutually exclusive with C<--ignore>.
 
-=back
+for my $target (@targets) {
+    print blue "Processing ${ \$target->key }\n";
 
-=head1 CONFIGURATION
+    unless ($target->is_valid) {
+        print yellow "  Skipping: no valid destination path found\n";
+        next;
+    }
 
-Create a C<symlish.conf.yaml> in your dotfiles directory:
+    if ($target->ignore) {
+        print yellow "  Skipping: ignore flag is set\n";
+        next;
+    }
 
-    link:
-      bash:
-        target: bash/**
-        paths:
-          - ~/
-      vscode:
-        target: vscode/*
-        paths:
-          - $APPDATA/Code/
-          - ~/.config/Code/
-      git:
-        target: git/**
-        ignore-empty: true
-        paths:
-          - ~/
+    # Dispatch command
+    if    ($command eq 'link')   {}#{ do_link($target, \%options) }
+    elsif ($command eq 'unlink') {}#{ do_unlink($target, \%options) }
+    elsif ($command eq 'status') { do_status($target) }
+}
 
-=head1 AUTHOR
 
-Your Name
-
-=head1 LICENSE
-
-Same terms as Perl itself.
-
-=cut
+exit 0;
