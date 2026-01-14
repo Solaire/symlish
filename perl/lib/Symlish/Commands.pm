@@ -6,7 +6,7 @@ use warnings;
 use Exporter 'import';
 our @EXPORT_OK = qw(do_link do_unlink do_status);
 
-use Symlish::Colour qw(red green yellow blue gray cyan);
+use Symlish::Logger qw(format_line green yellow gray cyan);
 
 sub do_link {
     my ($target, $options) = @_;
@@ -16,38 +16,38 @@ sub do_link {
 
     for my $item ($target->items) {
 
-        # Skip empty ?
+        # Skip empty?
         if ($target->ignore_empty && $item->is_source_empty) {
-            push @yellow, "  Skipping empty: ${ \$item->source }\n";
+            push @yellow, format_line(2, "Skipping empty: ${ \$item->source }");
             next
         }
 
         # If already linked, skip
-        next if $item->is_here
+        next if $item->is_here;
 
         # Conflict: symlink exists but points elsewhere
         if ($item->is_symlink) {
-            push @yellow,  "  Conflict: ${ \$item->target } (symlink exists)\n";
+            push @yellow, format_line(2, "Conflict: ${ \$item->target } (symlink exists)");
         }
 
         # Create backup if needed
         if ($item->can_backup and !$item->has_backup) {
             if ($dry_run) {
-                push @gray, "  Would backup: ${ \$item->target }\n"
+                push @gray, format_line(2, "Would backup: ${ \$item->target }");
             } 
             else {
                 $item->create_backup;
-                push @cyan, "  Backed up: ${ \$item->target }\n"
+                push @cyan, format_line(2, "Backed up: ${ \$item->target }");
             }
         }
 
         # Create the symlink
         if ($dry_run) {
-            push @gray, "  Would link: ${ \$item->source } -> ${ \$item->target }\n"
+            push @gray, format_line(2, "Would link: ${ \$item->source } -> ${ \$item->target }");
         } 
         else {
             $item->create_symlink;
-            push @cyan, "  Linked: ${ \$item->source } -> ${ \$item->target }\n"
+            push @cyan, format_line(2, "Linked: ${ \$item->source } -> ${ \$item->target }");
         }
     }
 
@@ -67,25 +67,25 @@ sub do_unlink {
     for my $item ($target->items) {
         
         # Only unlink if it points to our source
-        next unless $item->is_here
+        next unless $item->is_here;
 
         # Remove the symlink
         if ($dry_run) {
-            push @gray, "  Would unlink: ${ \$item->target }\n"
+            push @gray, format_line(2, "Would unlink: ${ \$item->target }");
         }
         else {
             $item->remove_symlink;
-            push @cyan, "  Unlinked: ${ \$item->target }\n"
+            push @cyan, format_line(2, "Unlinked: ${ \$item->target }");
         }
 
         # Restore the backup if exists
         if ($item->has_backup) {
             if ($dry_run) {
-                push @gray, "  Would restore: ${ \$item->backup }\n"
+                push @gray, format_line(2, "Would restore: ${ \$item->backup }");
             }
             else {
                 $item->restore_backup;
-                push @cyan, "  Restored: ${ \$item->backup }\n"
+                push @cyan, format_line(2, "Restored: ${ \$item->backup }");
             }
         }
         
@@ -105,28 +105,28 @@ sub do_status {
 
     for my $item ($target->items) {
 
-        # Skip empty ?
+        # Skip empty?
         if ($target->ignore_empty && $item->is_source_empty) {
-            push @yellow, "  Skipping empty: ${\$item->source}\n";
+            push @yellow, format_line(2, "Skipping empty: ${\$item->source}");
             next;
         }
 
         # Show backup status
         if ($item->has_backup) {
-            push @green, "  Backup exists: ${ \$item->backup }\n"
+            push @green, format_line(2, "Backup exists: ${ \$item->backup }");
         }
             
 
         # Show link status
         if (!-l $item->target) {
-            push @gray, "  ${ \$item->source } (not linked)\n";
+            push @gray, format_line(2, "${ \$item->source } (not linked)");
         }
         elsif ($item->is_here) {
-            push @cyan, "  ${ \$item->target } -> ${ \$item->source }\n";
+            push @cyan, format_line(2, "${ \$item->target } -> ${ \$item->source }");
         }
         else {
             my $actual = readlink($item->target) // '(unknown)';
-            push @yellow, "  ${ \$item->target } -> $actual\n";
+            push @yellow, format_line(2, "${ \$item->target } -> $actual");
         }
     }
 

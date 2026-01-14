@@ -14,16 +14,18 @@ sub load_config {
     my ($directory) = @_;
 
     my $config_file = File::Spec->catfile($directory, 'symlish.conf.yaml');
-    my $abs_config = abs_path($config_file)
-        or die "ERROR: 'symlish.conf.yaml' not found in '$directory'";
+    my $abs_config = abs_path($config_file);
+    
+    die "ERROR: '$config_file' not found\n"
+        unless -e $abs_config;
 
     my $raw_data = eval { LoadFile($abs_config) };
-    die "ERROR: Yaml syntax; '$@'" if $@;
+    die "ERROR: Yaml syntax; '$@'\n" if $@;
 
-    die "ERROR: Invalid config; 'link' block is missing"
+    die "ERROR: Invalid config; 'link' block is missing\n"
         unless ref($raw_data) eq 'HASH' && exists $raw_data->{link};
 
-    die "ERROR: Invalid config; 'link' must be a hash"
+    die "ERROR: Invalid config; 'link' must be a hash\n"
         unless ref($raw_data->{link}) eq 'HASH';
 
     # Validate each entry

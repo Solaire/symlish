@@ -33,7 +33,7 @@ sub filter_targets {
 
     if ($options_ref->{ignore}) {
         my %ignore = map { $_ => 1 } @{ $options_ref->{ignore} };
-        return grep { $ignore{ $_->key } } @$targets_ref;
+        return grep { !$ignore{ $_->key } } @$targets_ref;
     }
 
     return @$targets_ref;
