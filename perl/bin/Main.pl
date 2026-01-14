@@ -14,6 +14,7 @@ use Symlish::Logger qw(format_line yellow blue);
 use Symlish::Commands qw(do_link do_unlink do_status);
 use Symlish::Options qw(parse_command parse_directory parse_options);
 
+
 sub main {
     # Parse the command and directory
     my $command   = parse_command   (shift @ARGV, qw(link unlink status));
