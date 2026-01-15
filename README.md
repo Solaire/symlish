@@ -1,128 +1,273 @@
-# 💎 Symlish - Symbolic link manager for dotfiles
+# Symlish - Symbolic link manager for dotfiles
 
-![](image.png) `symlish` is a Ruby-based command-line tool that helps you manage symbolic links for your dotfiles in a clean, reversible way.
+![](image.png)  
 
-> NOTE
->
-> Currently work in progress, and not all features might work as expected.
-
----
+`symlish` is a Perl command-line tool that helps you manage symbolic links for your dotfiles in a clean, reversible way.
 
 ## Rationale
 
-Managing my configuration began with a simple Bash script that quickly grew into a complex mess. I wanted to move away from Bash-isms and find a scripting language appropriate for system scripts, pipelines, etc. Ruby worked well and so Symlish was born; a tool that started as a learning project and became a practical utility.
+Managing my configuration began with a simple Bash script that quickly grew into a complex mess. I wanted to move away from Bash-isms and find a scripting language appropriate for system scripts, pipelines, etc. This tool started as a learning project and became a practical utility.
 
 ## How it Works
 
-You provide Symlish with a target directory (your dotfiles root), and a command such as link or unlink. The tool with then:
-1. Extract the targets from the `symlish.conf.yaml` configuration file.
-2. Expand the target filepaths to find all target files and directories.
-3. Determine the first suitable destination path for each target group.
-4. Creates symlinks in the destination directory for matching files/directories.
-5. Backs up existing files (with `.bak` suffix) before linking.
+You provide Symlish with a target directory (your dotfiles root), and a command such as `link` or `unlink`. The tool will then:
+
+1. Load and validate the `symlish.conf.yaml` configuration file
+2. Expand glob patterns to find all source files and directories
+3. Determine the first suitable destination path for each target group
+4. Create symlinks in the destination directory for matching files/directories
+5. Back up existing files (with `.bak` suffix) before linking
 
 ## Features
 
-- Create symbolic links from a dotfiles directory to a target directory.
-- Determines the best destination path for the config:
-   - e.g. vscode config path is platform-specific. You can provide paths to each platform and symlish will apply the correct one.
-- Automatically backs up existing files (e.g., `.bashrc` ~> `.bashrc.bak`).
-- Restores backups when symlinks are removed.
-- Supports `--dry-run` mode for safe preview.
+- Symbolic link management - Create and remove symlinks from a dotfiles directory
+- Platform-aware paths - Specify multiple destination paths; Symlish uses the first one that exists
+  - e.g., VS Code config path differs between Linux (`~/.config/Code/`) and Windows (`$APPDATA/Code/`)
+- Automatic backups - Existing files are backed up (e.g., `.bashrc` -> `.bashrc.bak`)
+- Backup restoration - Backups are automatically restored when symlinks are removed
+- Dry-run mode - Preview changes with `--dry-run` before applying them
+- Filtering - Use `--only` or `--ignore` to process specific targets
 
 ---
 
+## Requirements
+
+- Perl 5.20+ (tested with 5.36)
+- cpanm (App::cpanminus) for dependency management
+
 ## Installation
 
-Install via RubyGems (after building locally or publishing):
+### Quick Start
 
 ```bash
-gem install symlish
-```
-
-Or clone the repo and run directly:
-```bash
-git clone https://github.com/yourusername/symlish.git
+# Clone the repository
+git clone https://github.com/solaire/symlish.git
 cd symlish
-bundle install
-bin/symlish <target-directory> <command> [options]
+
+# Set up local Perl environment (if needed)
+./script/install.sh
+
+# Install dependencies
+cpanm --installdeps .
+
+# Run symlish
+perl bin/Main.pl <command> <directory> [options]
 ```
 
-## Add it to your dotfiles repo as a submodule
+### Global Installation
+
+For system-wide installation so you can run it from anywhere:
+
+```bash
+cd symlish/perl
+
+# Install dependencies
+cpanm --installdeps .
+
+# Install globally (may require sudo)
+sudo make install
+
+# Alternatively, install to user's local bin
+sudo make install-user
+```
+
+After installation, you can use:
+```bash
+symlish link ~/dotfiles --dry-run
+```
+
+### Add as a Git Submodule
 
 From your dotfiles repository root:
+
 ```bash
+# Add symlish as a submodule
 git submodule add https://github.com/solaire/symlish.git symlish
 
-# Commit your changes:
+# Commit your changes
 git add .gitmodules symlish
 git commit -m "Add symlish as a submodule"
-git push
 ```
 
-You can them build it:
+Then install dependencies:
 ```bash
-cd symlish
-gem build symlish.gemspec 
-sudo gem install symlish-*.gem
+cd symlish/perl
+cpanm --installdeps .
 ```
 
-# Usage
+---
+
+## Usage
 
 ```bash
-symlish <target-directory> <command> [options]
+symlish <command> <directory> [options]
 ```
 
-### Example
+### Examples
 
-Show what symlinks would be created, without making changes:
 ```bash
-symlish ~/dotfiles link --dry-run
+# Preview what symlinks would be created
+symlish link ~/dotfiles --dry-run
+
+# Create all symlinks
+symlish link ~/dotfiles
+
+# Check current symlink status
+symlish status ~/dotfiles
+
+# Remove symlinks and restore backups
+symlish unlink ~/dotfiles
+
+# Only process specific targets
+symlish link ~/dotfiles --only bash,git
+
+# Skip certain targets
+symlish link ~/dotfiles --ignore vscode,emacs
 ```
 
 ## Commands
 
-| Command  | Description                         |
-| -------- | ----------------------------------- |
-| `link`   | Create symlinks                     |
-| `unlink` | Remove symlinks and restore backups |
-| `status` | Show current link status            |
+| Command   | Description                              |
+| --------- | ---------------------------------------- |
+| `link`    | Create symlinks from dotfiles to system  |
+| `unlink`  | Remove symlinks and restore backups      |
+| `status`  | Show current symlink status              |
+| `help`    | Display usage information                |
+| `version` | Display version                          |
 
 ## Options
 
-| Option      | Value | Description                                          |
-| ----------- | ----- | ---------------------------------------------------- |
-| `--dry-run` |       | Simulate operation without making changes            |
-| `--include` | x,y,z | Only include specified items                         |
-| `--only`    | x,y,z | Include only listed items (overrides include/ignore) |
+| Option      | Value   | Description                                       |
+| ----------- | ------- | ------------------------------------------------- |
+| `--dry-run` |         | Simulate operation without making changes         |
+| `--only`    | `x,y,z` | Process only the specified targets                |
+| `--ignore`  | `x,y,z` | Skip the specified targets                        |
 
-> NOTE
->
-> The `--only` option will overwrite content of `symlish.conf.yaml`.
+> Note: `--only` and `--ignore` are mutually exclusive.
+
+---
 
 ## Configuration
 
-Add a `symlish.conf.yaml` file to your dotfiles directory:
+Create a `symlish.conf.yaml` file in your dotfiles directory:
+
 ```yaml
 link:
+  # Shell configuration
+  bash:
+    target: bash/*           # Glob pattern for source files
+    paths:                   # Destination paths (first existing is used)
+      - ~/
+    ignore-empty: true       # Skip empty files
+
+  # Git configuration
+  git:
+    target: git/*
+    paths:
+      - ~/
+
+  # VS Code (cross-platform example)
   vscode:
     target: vscode/*
     paths:
-      - $APPDATA/Code/
-      - ~/.config/Code/
-  git:
-    target: git/**
-    paths:
-      - ~/
+      - $APPDATA/Code/       # Windows
+      - ~/.config/Code/      # Linux
+
+  # Temporarily disabled
   emacs:
     target: emacs/.doom.d
-    ignore: true
+    ignore: true             # Skip this target entirely
     paths:
       - ~/
-  bash:
-    target: bash/**
-    paths:
-      - ~/
-    ignore-empty: true
+```
+
+### Configuration Options
+
+| Option         | Type    | Default | Description                                     |
+| -------------- | ------- | ------- | ----------------------------------------------- |
+| `target`       | string  | —       | Glob pattern relative to dotfiles root          |
+| `paths`        | array   | —       | List of destination paths (first valid is used) |
+| `ignore`       | boolean | `false` | Skip this target entirely                       |
+| `ignore-empty` | boolean | `true`  | Skip empty files and directories                |
+| `conflict`     | string  | `skip`  | How to handle conflicts: `skip` or `overwrite`  |
+
+### Glob Patterns
+
+- `bash/*`      — All files in `bash/` directory (including dotfiles)
+- `config/**`   — All files recursively in `config/` directory
+- `git/*.pl`    — All files ending in `.pl` files in `git/` directory
+- `vim/.vimrc`  — Single specific file
+
+### Path Expansion
+
+Paths support:
+- Environment variables: `$HOME`, `$APPDATA`, `$XDG_CONFIG_HOME`
+- Tilde expansion: `~/` expands to your home directory
+
+---
+
+## Development
+
+### Running Tests
+
+```bash
+cd perl
+
+# Run all tests
+make test
+
+# Run tests verbosely
+make test-verbose
+
+# Run a specific test file
+make test-file FILE=t/00-config.t
+
+# Run end-to-end test in a fresh Linux Docker container (requires Docker)
+make test-docker
+```
+
+### Project Structure
 
 ```
+symlish/
+├── bin/
+│   └── Main.pl          # Entry point
+├── lib/
+│   └── Symlish/
+│       ├── Commands.pm  # link/unlink/status logic
+│       ├── Config.pm    # YAML config loading
+│       ├── LinkItem.pm  # Single symlink operations
+│       ├── LinkTarget.pm# Target group handling
+│       ├── Logger.pm    # Colored output
+│       ├── Options.pm   # CLI argument parsing
+│       └── Targets.pm   # Target building/filtering
+├── t/                   # Test suite
+│   ├── 00-config.t
+│   ├── 01-options.t
+│   ├── 02-link-item.t
+│   ├── 03-link-target.t
+│   ├── 04-targets.t
+│   ├── 05-commands.t
+│   ├── 06-logger.t
+│   └── 07-integration.t
+├── cpanfile             # Perl dependencies
+└── scripts/
+    └── install.sh       # Environment setup
+    └── build-docker.sh  # Environment setup
+```
+
+### Dependencies
+
+Runtime:
+- `YAML::PP` — YAML configuration parsing
+
+Testing:
+- `Test::More` — Core test framework
+- `Test::Exception` — Exception testing
+- `Capture::Tiny` — Output capture
+- `File::Temp` — Temporary files/directories
+
+
+## License
+
+See [LICENSE](LICENSE) for details.
