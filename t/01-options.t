@@ -20,11 +20,13 @@ use File::Temp qw(tempdir);
 # Test: parse_command - valid commands
 #=============================================================================
 subtest 'parse_command with valid commands' => sub {
-    is(parse_command('link', qw(link unlink status)), 'link', 
+    my @supported = qw(link unlink status);
+
+    is(parse_command('link', @supported), 'link', 
         'Accepts link command');
-    is(parse_command('unlink', qw(link unlink status)), 'unlink', 
+    is(parse_command('unlink', @supported), 'unlink', 
         'Accepts unlink command');
-    is(parse_command('status', qw(link unlink status)), 'status', 
+    is(parse_command('status', @supported), 'status', 
         'Accepts status command');
 };
 
@@ -32,7 +34,9 @@ subtest 'parse_command with valid commands' => sub {
 # Test: parse_command - invalid commands
 #=============================================================================
 subtest 'parse_command with invalid command' => sub {
-    throws_ok { parse_command('invalid', qw(link unlink status)) }
+    my @supported = qw(link unlink status);
+    
+    throws_ok { parse_command('invalid', @supported) }
         qr/Unknown command/,
         'Dies on unknown command';
     

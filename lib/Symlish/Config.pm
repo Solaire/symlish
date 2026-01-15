@@ -25,7 +25,8 @@ sub load_config {
         unless -e $abs_config;
 
     my $raw_data = eval { LoadFile($abs_config) };
-    die "ERROR: Yaml syntax; '$@'\n" if $@;
+    die "ERROR: Yaml syntax; '$@'\n" 
+        if $@;
 
     die "ERROR: Invalid config; 'link' block is missing\n"
         unless ref($raw_data) eq 'HASH' && exists $raw_data->{link};
@@ -54,28 +55,29 @@ sub load_config {
 sub _validate_entry {
     my ($name, $entry_ref) = @_;
 
-    die "ERROR: Invalid config entry '$name'; must be a hash"
+    die "ERROR: Invalid config entry '$name'; must be a hash\n"
         unless ref($entry_ref) eq 'HASH';
 
-    die "ERROR: Invalid config entry '$name'; missing 'paths'"
+    die "ERROR: Invalid config entry '$name'; missing 'paths'\n"
         unless exists $entry_ref->{paths};
 
-    die "ERROR: Invalid config entry '$name'; 'paths' must be an array"
+    die "ERROR: Invalid config entry '$name'; 'paths' must be an array\n"
         unless ref($entry_ref->{paths}) eq 'ARRAY';
 
-    die "ERROR: Invalid config entry '$name'; missing 'target'"
+    die "ERROR: Invalid config entry '$name'; missing 'target'\n"
         unless exists $entry_ref->{target};
 
     if (exists $entry_ref->{conflict}) {
-        die "ERROR: Invalid 'conflict' value in '$name'; must be 'skip' or 'overwrite'"
+        die "ERROR: Invalid 'conflict' value in '$name'; must be 'skip' or 'overwrite'\n"
             unless $entry_ref->{conflict} =~ /^(?:skip|overwrite)$/;
     }
 
+    # Ensure boolean fields are actually boolean.
     for my $bool_key (qw(ignore ignore-empty)) {
         if (exists $entry_ref->{$bool_key}) {
             my $val = $entry_ref->{$bool_key};
 
-            die "ERROR: Invalid '$bool_key' value in '$name'; must be boolean"
+            die "ERROR: Invalid '$bool_key' value in '$name'; must be boolean\n"
                 unless !defined $val
                     || $val eq ''
                     || $val =~ /^[01]$/

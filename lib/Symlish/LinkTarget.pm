@@ -55,7 +55,7 @@ sub _resolve_path {
         # Expand ~ to home directory
         $expanded =~ s/^~/$ENV{HOME}/;
 
-        # Get absolute path
+        # Get absolute path and check if exists
         my $abs = File::Spec->rel2abs($expanded);
 
         if (-e $abs) {

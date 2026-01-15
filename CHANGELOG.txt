@@ -1,0 +1,11 @@
+1.0.0
+[ ] Moved away from Ruby implementation in favour of Perl 5. One of the main reasons is better experience with tooling and version management
+[+] Support for following features:
+    - `link` command which will create symbolic links and back up existing non-link files
+        - Conflicts are currently skipped
+        - Directories will not be backed up
+
+    - `unlink` command reverses the process, removing symbolic links and restoring the backups
+        - Only applies to symlinks that point to the configuration file
+
+    - `status` command will display the current status of the config (which files are links, what backups have been made, etc.)

@@ -8,6 +8,12 @@ our @EXPORT_OK = qw(parse_command parse_directory parse_options);
 
 use Getopt::Long qw(GetOptionsFromArray :config pass_through);
 
+# Versioning
+my $VERSION_MAJOR = 1;
+my $VERSION_MINOR = 0;
+my $VERSION_PATCH = 0;
+
+# Usage string
 my $USAGE = <<'USAGE';
 Usage: symlish <command> <directory> [options]
 
@@ -16,6 +22,7 @@ Commands:
     unlink    Remove symlinks and restore backups
     status    Show current symlink status
     help      Display this help message
+    version   Show version number
 
 Options:
     --dry-run           Simulate without making changes
@@ -28,19 +35,24 @@ Examples:
     symlish unlink ~/dotfiles --only git,bash
 USAGE
 
-
 # parse_command($command, @supported) - Validates the command argument.
 # Params:
 #   $command   - The command string from CLI (e.g., 'link', 'unlink')
 #   @supported - List of valid command names
 # Returns: The validated command string
-# Dies: If command is invalid or help is requested (exits 0 for help)
+# Dies: If command is invalid, or help or version is requested (exits 0 for help and version)
 sub parse_command {
     my ($command, @supported) = @_;
 
     # Handle help
     if (!$command || $command eq 'help' || $command eq '--help' || $command eq '-h') {
         print $USAGE;
+        exit 0;
+    }
+
+    # Handle version
+    if($command eq 'version' || $command eq '--version' || $command eq '-v') {
+        print "Symlish version $VERSION_MAJOR.$VERSION_MINOR.$VERSION_PATCH\n";
         exit 0;
     }
 
