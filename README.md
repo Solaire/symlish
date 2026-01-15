@@ -1,8 +1,8 @@
-# � Symlish - Symbolic link manager for dotfiles
+# Symlish - Symbolic link manager for dotfiles
+
+![](image.png)  
 
 `symlish` is a Perl command-line tool that helps you manage symbolic links for your dotfiles in a clean, reversible way.
-
----
 
 ## Rationale
 
@@ -20,20 +20,20 @@ You provide Symlish with a target directory (your dotfiles root), and a command 
 
 ## Features
 
-- **Symbolic link management** - Create and remove symlinks from a dotfiles directory
-- **Platform-aware paths** - Specify multiple destination paths; Symlish uses the first one that exists
+- Symbolic link management - Create and remove symlinks from a dotfiles directory
+- Platform-aware paths - Specify multiple destination paths; Symlish uses the first one that exists
   - e.g., VS Code config path differs between Linux (`~/.config/Code/`) and Windows (`$APPDATA/Code/`)
-- **Automatic backups** - Existing files are backed up (e.g., `.bashrc` → `.bashrc.bak`)
-- **Backup restoration** - Backups are automatically restored when symlinks are removed
-- **Dry-run mode** - Preview changes with `--dry-run` before applying them
-- **Filtering** - Use `--only` or `--ignore` to process specific targets
+- Automatic backups - Existing files are backed up (e.g., `.bashrc` -> `.bashrc.bak`)
+- Backup restoration - Backups are automatically restored when symlinks are removed
+- Dry-run mode - Preview changes with `--dry-run` before applying them
+- Filtering - Use `--only` or `--ignore` to process specific targets
 
 ---
 
 ## Requirements
 
-- **Perl 5.20+** (tested with 5.36)
-- **cpanm** (App::cpanminus) for dependency management
+- Perl 5.20+ (tested with 5.36)
+- cpanm (App::cpanminus) for dependency management
 
 ## Installation
 
@@ -42,7 +42,7 @@ You provide Symlish with a target directory (your dotfiles root), and a command 
 ```bash
 # Clone the repository
 git clone https://github.com/solaire/symlish.git
-cd symlish/perl
+cd symlish
 
 # Set up local Perl environment (if needed)
 ./script/install.sh
@@ -56,7 +56,7 @@ perl bin/Main.pl <command> <directory> [options]
 
 ### Global Installation
 
-To install symlish system-wide so you can run it from anywhere:
+For system-wide installation so you can run it from anywhere:
 
 ```bash
 cd symlish/perl
@@ -66,6 +66,9 @@ cpanm --installdeps .
 
 # Install globally (may require sudo)
 sudo make install
+
+# Alternatively, install to user's local bin
+sudo make install-user
 ```
 
 After installation, you can use:
@@ -124,12 +127,13 @@ symlish link ~/dotfiles --ignore vscode,emacs
 
 ## Commands
 
-| Command  | Description                              |
-| -------- | ---------------------------------------- |
-| `link`   | Create symlinks from dotfiles to system  |
-| `unlink` | Remove symlinks and restore backups      |
-| `status` | Show current symlink status              |
-| `help`   | Display usage information                |
+| Command   | Description                              |
+| --------- | ---------------------------------------- |
+| `link`    | Create symlinks from dotfiles to system  |
+| `unlink`  | Remove symlinks and restore backups      |
+| `status`  | Show current symlink status              |
+| `help`    | Display usage information                |
+| `version` | Display version                          |
 
 ## Options
 
@@ -139,7 +143,7 @@ symlish link ~/dotfiles --ignore vscode,emacs
 | `--only`    | `x,y,z` | Process only the specified targets                |
 | `--ignore`  | `x,y,z` | Skip the specified targets                        |
 
-> **Note:** `--only` and `--ignore` are mutually exclusive.
+> Note: `--only` and `--ignore` are mutually exclusive.
 
 ---
 
@@ -179,25 +183,26 @@ link:
 
 ### Configuration Options
 
-| Option         | Type    | Default | Description                                    |
-| -------------- | ------- | ------- | ---------------------------------------------- |
-| `target`       | string  | —       | Glob pattern relative to dotfiles root         |
-| `paths`        | array   | —       | List of destination paths (first valid is used)|
-| `ignore`       | boolean | `false` | Skip this target entirely                      |
-| `ignore-empty` | boolean | `true`  | Skip empty files and directories               |
-| `conflict`     | string  | `skip`  | How to handle conflicts: `skip` or `overwrite` |
+| Option         | Type    | Default | Description                                     |
+| -------------- | ------- | ------- | ----------------------------------------------- |
+| `target`       | string  | —       | Glob pattern relative to dotfiles root          |
+| `paths`        | array   | —       | List of destination paths (first valid is used) |
+| `ignore`       | boolean | `false` | Skip this target entirely                       |
+| `ignore-empty` | boolean | `true`  | Skip empty files and directories                |
+| `conflict`     | string  | `skip`  | How to handle conflicts: `skip` or `overwrite`  |
 
 ### Glob Patterns
 
-- `bash/*` — All files in `bash/` directory (including dotfiles)
-- `config/**` — All files recursively in `config/` directory
-- `vim/.vimrc` — Single specific file
+- `bash/*`      — All files in `bash/` directory (including dotfiles)
+- `config/**`   — All files recursively in `config/` directory
+- `git/*.pl`    — All files ending in `.pl` files in `git/` directory
+- `vim/.vimrc`  — Single specific file
 
 ### Path Expansion
 
 Paths support:
-- **Environment variables:** `$HOME`, `$APPDATA`, `$XDG_CONFIG_HOME`
-- **Tilde expansion:** `~/` expands to your home directory
+- Environment variables: `$HOME`, `$APPDATA`, `$XDG_CONFIG_HOME`
+- Tilde expansion: `~/` expands to your home directory
 
 ---
 
@@ -209,19 +214,22 @@ Paths support:
 cd perl
 
 # Run all tests
-prove -l t/
+make test
 
 # Run tests verbosely
-prove -lv t/
+make test-verbose
 
 # Run a specific test file
-prove -lv t/00-config.t
+make test-file FILE=t/00-config.t
+
+# Run end-to-end test in a fresh Linux Docker container (requires Docker)
+make test-docker
 ```
 
 ### Project Structure
 
 ```
-perl/
+symlish/
 ├── bin/
 │   └── Main.pl          # Entry point
 ├── lib/
@@ -243,22 +251,22 @@ perl/
 │   ├── 06-logger.t
 │   └── 07-integration.t
 ├── cpanfile             # Perl dependencies
-└── script/
+└── scripts/
     └── install.sh       # Environment setup
+    └── build-docker.sh  # Environment setup
 ```
 
 ### Dependencies
 
-**Runtime:**
+Runtime:
 - `YAML::PP` — YAML configuration parsing
 
-**Testing:**
+Testing:
 - `Test::More` — Core test framework
 - `Test::Exception` — Exception testing
 - `Capture::Tiny` — Output capture
 - `File::Temp` — Temporary files/directories
 
----
 
 ## License
 

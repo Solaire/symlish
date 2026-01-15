@@ -39,7 +39,7 @@ YELLOW := \033[0;33m
 BLUE   := \033[0;34m
 NC     := \033[0m  # No Color
 
-.PHONY: all deps deps-dev test test-verbose lint tidy install uninstall clean help
+.PHONY: all deps deps-dev test test-verbose test-docker lint tidy install uninstall clean help
 
 # Default target
 all: test
@@ -78,6 +78,12 @@ test-verbose:
 ## Run a specific test file (usage: make test-file FILE=t/00-config.t)
 test-file:
 	@$(PROVE) -lv $(FILE)
+
+## Run an end-to-end test using a fresh Debian-based Docker container
+test-docker:
+	@echo -e "$(BLUE)==> Running Docker end-to-end tests...$(NC)"
+	@bash scripts/build_docker.sh
+	@echo -e "$(GREEN)==> Docker tests passed$(NC)"
 
 #=============================================================================
 # Code Quality
@@ -192,6 +198,7 @@ help:
 	@echo "  test          Run the test suite"
 	@echo "  test-verbose  Run tests with verbose output"
 	@echo "  test-file     Run specific test (FILE=t/00-config.t)"
+	@echo "  test-docker   Run end-to-end tests in Docker container"
 	@echo ""
 	@echo "  lint          Run Perl::Critic (severity 4)"
 	@echo "  lint-strict   Run Perl::Critic (severity 3)"
