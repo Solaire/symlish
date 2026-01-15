@@ -10,6 +10,12 @@ use File::Glob qw(bsd_glob);
 
 use Symlish::LinkItem;
 
+# new(%args) - Constructor for LinkTarget.
+# Params (via %args):
+#   key        - Unique identifier for this target (e.g., 'vscode')
+#   entry      - Hash ref of config entry (target, paths, ignore, etc.)
+#   config_dir - Absolute path to the dotfiles directory
+# Returns: Blessed LinkTarget object
 sub new {
     my ($class, %args) = @_;
 
@@ -33,10 +39,15 @@ sub new {
     return $self;
 }
 
+# _resolve_path($paths_ref) - Finds first existing destination path.
+# Expands environment variables ($HOME, $APPDATA) and ~ in paths.
+# Sets $self->{path} to the first path that exists on the system.
+# Params:
+#   $paths_ref - Array ref of candidate destination paths
 sub _resolve_path {
-    my ($self, $paths) = @_;
+    my ($self, $paths_ref) = @_;
 
-    for my $candidate (@$paths) {
+    for my $candidate (@$paths_ref) {
         # Expand environment variables ($HOME, $APPDATA, etc.)
         my $expanded = $candidate;
         $expanded =~ s/\$(\w+)/exists $ENV{$1} ? $ENV{$1} : ''/ge;
@@ -54,18 +65,24 @@ sub _resolve_path {
     }
 }
 
+# _build_items($config_dir, $target_pattern) - Expands glob and creates LinkItems.
+# Globs the target pattern to find source files, then creates LinkItem
+# objects mapping each source to its destination path.
+# Params:
+#   $config_dir     - Absolute path to dotfiles directory
+#   $target_pattern - Glob pattern (e.g., 'bash/**', 'vscode/*')
 sub _build_items {
     my ($self, $config_dir, $target_pattern) = @_;
 
-    my $ glob_pattern = File::Spec->catfile($config_dir, $target_pattern);
+    my $glob_pattern = File::Spec->catfile($config_dir, $target_pattern);
 
     # bsd_glob with GLOB_CSH handles most cases; we also explicitly glob for dotfiles
     my @matches = bsd_glob($glob_pattern);
 
-    # If pattern doesn't explicitly start with a dot, trey matching dotfiles
+    # If pattern doesn't explicitly start with a dot, try matching dotfiles
     # by prepending a dot variant for the last component
     if ($target_pattern =~ /\*/) {
-        # Replace * with .* in the last path component to match dorfiles
+        # Replace * with .* in the last path component to match dotfiles
         my $dot_pattern = $glob_pattern;
         $dot_pattern =~ s{/\*}{/.*}g;
         push @matches, bsd_glob($dot_pattern);
@@ -96,7 +113,14 @@ sub _build_items {
     }
 }
 
-# Accessors
+# Accessors - Read-only access to object properties
+# key()          - Returns the target identifier (e.g., 'vscode')
+# path()         - Returns the resolved destination path (or undef)
+# ignore()       - Returns true if this target should be skipped
+# ignore_empty() - Returns true if empty files/dirs should be skipped
+# conflict()     - Returns conflict resolution strategy ('skip'/'overwrite')
+# items()        - Returns list of LinkItem objects
+# is_valid()     - Returns true if a valid destination path was found
 sub key             { $_[0]->{key} }
 sub path            { $_[0]->{path} }
 sub ignore          { $_[0]->{ignore} }
@@ -105,6 +129,12 @@ sub conflict        { $_[0]->{conflict} }
 sub items           { @{ $_[0]->{items} } }
 sub is_valid        { defined $_[0]->{path} }
 
+# _to_bool($val, $default) - Converts YAML boolean values to Perl boolean.
+# Handles: 0, 1, 'true', 'false', '', undef
+# Params:
+#   $val     - The value to convert
+#   $default - Default if $val is undefined
+# Returns: 1 or 0
 sub _to_bool {
     my ($val, $default) = @_;
 

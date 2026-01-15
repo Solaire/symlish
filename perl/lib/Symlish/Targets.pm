@@ -8,21 +8,30 @@ our @EXPORT_OK = qw(build_targets filter_targets);
 
 use Symlish::LinkTarget;
 
+# build_targets($config_ref) - Creates LinkTarget objects from config.
+# Params:
+#   $config_ref - Hash ref returned by load_config()
+# Returns: List of Symlish::LinkTarget objects
 sub build_targets {
-    my ($config) = @_;
+    my ($config_ref) = @_;
 
     my @targets;
-    while (my ($name, $entry) = each %{ $config->{link} }) {
+    while (my ($name, $entry_ref) = each %{ $config_ref->{link} }) {
         push @targets, Symlish::LinkTarget->new(
             key         => $name,
-            entry       => $entry,
-            config_dir  => $config->{config_dir},
+            entry       => $entry_ref,
+            config_dir  => $config_ref->{config_dir},
         );
     }
 
     return @targets;
 }
 
+# filter_targets($targets_ref, $options_ref) - Filters targets by --only or --ignore.
+# Params:
+#   $targets_ref - Array ref of LinkTarget objects
+#   $options_ref - Hash ref of parsed CLI options
+# Returns: Filtered list of LinkTarget objects
 sub filter_targets {
     my ($targets_ref, $options_ref) = @_; 
 
@@ -38,3 +47,5 @@ sub filter_targets {
 
     return @$targets_ref;
 }
+
+1;

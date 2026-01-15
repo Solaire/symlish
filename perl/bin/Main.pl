@@ -10,23 +10,27 @@ use lib "$RealBin/../lib";
 
 use Symlish::Config qw(load_config);
 use Symlish::Targets qw(build_targets filter_targets);
-use Symlish::Logger qw(format_line yellow blue);
+use Symlish::Logger qw(format_line yellow blue green);
 use Symlish::Commands qw(do_link do_unlink do_status);
 use Symlish::Options qw(parse_command parse_directory parse_options);
 
 
+# main() - Entry point for the symlish CLI application.
+# Parses command-line arguments, loads configuration, builds targets,
+# and dispatches to the appropriate command handler (link/unlink/status).
 sub main {
     # Parse the command and directory
-    my $command   = parse_command   (shift @ARGV, qw(link unlink status));
-    my $directory = parse_directory (shift @ARGV);
-    my %options   = parse_options   (     \@ARGV);
+    my $command     = parse_command   (shift @ARGV, qw(link unlink status));
+    my $directory   = parse_directory (shift @ARGV);
+    my %options     = parse_options   (\@ARGV);
+    my $options_ref = \%options;
 
     # Load and validate config
-    my $config = load_config($directory);
+    my $config_ref = load_config($directory);
 
     # Build and filter the targets
-    my @targets = build_targets($config);
-    @targets = filter_targets(\@targets, \%options);
+    my @targets = build_targets($config_ref);
+    @targets = filter_targets(\@targets, $options_ref);
 
     # Process command
     for my $target (@targets) {
@@ -43,10 +47,12 @@ sub main {
         }
 
         # Dispatch command
-        if    ($command eq 'link')   { do_link  ($target, \%options) }
-        elsif ($command eq 'unlink') { do_unlink($target, \%options) }
-        elsif ($command eq 'status') { do_status($target)            }
+        if    ($command eq 'link')   { do_link  ($target, $options_ref) }
+        elsif ($command eq 'unlink') { do_unlink($target, $options_ref) }
+        elsif ($command eq 'status') { do_status($target)              }
     }
+
+    print green format_line(0, "Done.");
 }
 
 main;

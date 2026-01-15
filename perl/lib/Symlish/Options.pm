@@ -29,6 +29,12 @@ Examples:
 USAGE
 
 
+# parse_command($command, @supported) - Validates the command argument.
+# Params:
+#   $command   - The command string from CLI (e.g., 'link', 'unlink')
+#   @supported - List of valid command names
+# Returns: The validated command string
+# Dies: If command is invalid or help is requested (exits 0 for help)
 sub parse_command {
     my ($command, @supported) = @_;
 
@@ -46,32 +52,42 @@ sub parse_command {
     die "ERROR: Unknown command '$command'\n";
 }
 
+# parse_directory($directory) - Validates the directory argument.
+# Params:
+#   $directory - Path to the dotfiles directory
+# Returns: The validated directory path
+# Dies: If directory is missing or doesn't exist
 sub parse_directory {
     my ($directory) = @_;
 
-    die "ERROR: Missing <directory> argument"
+    die "ERROR: Missing <directory> argument\n"
         unless $directory;
 
-    die "ERROR: '$directory' is not a valid directory" 
+    die "ERROR: '$directory' is not a valid directory\n" 
         unless -d $directory;
 
     return $directory;
 }
 
+# parse_options($argv_ref) - Parses command-line options.
+# Params:
+#   $argv_ref - Reference to @ARGV array
+# Returns: Hash of parsed options (dry-run, ignore, only)
+# Dies: If --ignore and --only are used together
 sub parse_options {
-    my ($args_ref) = @_;
+    my ($argv_ref) = @_;
 
     my %options = ('dry-run' => 0);
 
     GetOptionsFromArray(
-        $args_ref,
+        $argv_ref,
         'dry-run'   => \$options{'dry-run'},
         'ignore=s'  => \$options{ignore},
         'only=s'    => \$options{only},
     ) or die $USAGE;
 
     # Validate mutually-exclusive options
-    die "ERROR: --ignore and --only cannot be used together"
+    die "ERROR: --ignore and --only cannot be used together\n"
         if $options{ignore} && $options{only};
 
     # Convert comma-separated strings to arrays
@@ -84,3 +100,4 @@ sub parse_options {
     return %options;
 }
 
+1;

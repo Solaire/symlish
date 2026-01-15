@@ -6,13 +6,23 @@ use warnings;
 use Exporter 'import';
 our @EXPORT_OK = qw(format_line reset bold red green yellow blue magenta cyan white gray);
 
-# Format line with indentation
+# Symlish::Logger - ANSI color formatting and text utilities.
+# Provides color wrappers and text formatting for CLI output.
+
+# format_line($indent, $text) - Formats text with leading indentation.
+# Params:
+#   $indent - Number of spaces to prepend
+#   $text   - The text to format
+# Returns: Indented text with trailing newline
 sub format_line {
     my ($indent, $text) = @_;
     return sprintf("%-*s", $indent, '') . $text . "\n";
 }
 
-# ANSI foreground colour codes
+# ANSI Color Functions - Wrap text in ANSI escape codes.
+# Each function takes a string and returns it wrapped in color codes.
+# Colors auto-reset after the text.
+# Usage: print red("Error message");
 sub reset  { "\e[0m" }
 sub bold   { "\e[1m$_[0]\e[0m" }
 

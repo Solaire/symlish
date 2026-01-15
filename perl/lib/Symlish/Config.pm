@@ -10,6 +10,11 @@ use Cwd qw(abs_path);
 use File::Spec;
 use YAML::PP qw(LoadFile);
 
+# load_config($directory) - Loads and validates symlish.conf.yaml.
+# Params:
+#   $directory - Path to directory containing symlish.conf.yaml
+# Returns: Hash ref with keys: config_path, config_dir, link
+# Dies: If config file missing, invalid YAML, or validation fails
 sub load_config {
     my ($directory) = @_;
 
@@ -29,8 +34,8 @@ sub load_config {
         unless ref($raw_data->{link}) eq 'HASH';
 
     # Validate each entry
-    while (my ($name, $entry) = each %{ $raw_data->{link} }) {
-        _validate_entry($name, $entry);
+    while (my ($name, $entry_ref) = each %{ $raw_data->{link} }) {
+        _validate_entry($name, $entry_ref);
     }
 
     return {
@@ -40,29 +45,35 @@ sub load_config {
     };
 }
 
+# _validate_entry($name, $entry_ref) - Validates a single config entry.
+# Params:
+#   $name      - Name of the config entry (e.g., 'vscode', 'bash')
+#   $entry_ref - Hash ref containing entry configuration
+# Returns: 1 on success
+# Dies: If entry is malformed or has invalid values
 sub _validate_entry {
-    my ($name, $entry) = @_;
+    my ($name, $entry_ref) = @_;
 
     die "ERROR: Invalid config entry '$name'; must be a hash"
-        unless ref($entry) eq 'HASH';
+        unless ref($entry_ref) eq 'HASH';
 
     die "ERROR: Invalid config entry '$name'; missing 'paths'"
-        unless exists $entry->{paths};
+        unless exists $entry_ref->{paths};
 
     die "ERROR: Invalid config entry '$name'; 'paths' must be an array"
-        unless ref($entry->{paths}) eq 'ARRAY';
+        unless ref($entry_ref->{paths}) eq 'ARRAY';
 
     die "ERROR: Invalid config entry '$name'; missing 'target'"
-        unless exists $entry->{target};
+        unless exists $entry_ref->{target};
 
-    if (exists $entry->{conflict}) {
+    if (exists $entry_ref->{conflict}) {
         die "ERROR: Invalid 'conflict' value in '$name'; must be 'skip' or 'overwrite'"
-            unless $entry->{conflict} =~ /^(?:skip|overwrite)$/;
+            unless $entry_ref->{conflict} =~ /^(?:skip|overwrite)$/;
     }
 
     for my $bool_key (qw(ignore ignore-empty)) {
-        if (exists $entry->{$bool_key}) {
-            my $val = $entry->{$bool_key};
+        if (exists $entry_ref->{$bool_key}) {
+            my $val = $entry_ref->{$bool_key};
 
             die "ERROR: Invalid '$bool_key' value in '$name'; must be boolean"
                 unless !defined $val

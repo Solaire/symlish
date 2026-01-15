@@ -6,13 +6,19 @@ use warnings;
 use Exporter 'import';
 our @EXPORT_OK = qw(do_link do_unlink do_status);
 
-use Symlish::Logger qw(format_line green yellow gray cyan);
+use Symlish::Logger qw(format_line yellow gray cyan);
 
+# do_link($target, $options_ref) - Creates symlinks for a target.
+# Handles: skipping empty sources, conflict detection, backup creation.
+# In dry-run mode, only prints what would be done.
+# Params:
+#   $target      - LinkTarget object
+#   $options_ref - Hash ref with 'dry-run' flag
 sub do_link {
-    my ($target, $options) = @_;
+    my ($target, $options_ref) = @_;
 
-    my $dry_run = $options->{'dry-run'};
-    my (@green, @yellow, @gray, @cyan);
+    my $dry_run = $options_ref->{'dry-run'};
+    my (@yellow, @gray, @cyan);
 
     for my $item ($target->items) {
 
@@ -52,17 +58,22 @@ sub do_link {
     }
 
     # Print all statuses
-    print green($_)  for @green;
     print yellow($_) for @yellow;
     print gray($_)   for @gray;
     print cyan($_)   for @cyan;
 }
 
+# do_unlink($target, $options_ref) - Removes symlinks and restores backups.
+# Only removes symlinks that point to our source files.
+# In dry-run mode, only prints what would be done.
+# Params:
+#   $target      - LinkTarget object
+#   $options_ref - Hash ref with 'dry-run' flag
 sub do_unlink {
-    my ($target, $options) = @_;
+    my ($target, $options_ref) = @_;
 
-    my $dry_run = $options->{'dry-run'};
-    my (@green, @yellow, @gray, @cyan);
+    my $dry_run = $options_ref->{'dry-run'};
+    my (@yellow, @gray, @cyan);
 
     for my $item ($target->items) {
         
@@ -92,16 +103,19 @@ sub do_unlink {
     }
 
     # Print all statuses
-    print green($_)  for @green;
     print yellow($_) for @yellow;
     print gray($_)   for @gray;
     print cyan($_)   for @cyan;
 }
 
+# do_status($target) - Displays current symlink status for a target.
+# Shows: backup existence, link status (linked/not linked/wrong target).
+# Params:
+#   $target - LinkTarget object
 sub do_status {
     my ($target) = @_;
 
-    my (@green, @yellow, @gray, @cyan);
+    my (@yellow, @gray, @cyan);
 
     for my $item ($target->items) {
 
@@ -113,7 +127,7 @@ sub do_status {
 
         # Show backup status
         if ($item->has_backup) {
-            push @green, format_line(2, "Backup exists: ${ \$item->backup }");
+            push @cyan, format_line(2, "Backup exists: ${ \$item->backup }");
         }
             
 
@@ -131,7 +145,6 @@ sub do_status {
     }
 
     # Print all statuses
-    print green($_)  for @green;
     print yellow($_) for @yellow;
     print gray($_)   for @gray;
     print cyan($_)   for @cyan;

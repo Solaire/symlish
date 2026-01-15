@@ -3,11 +3,14 @@ package Symlish::LinkItem;
 use strict;
 use warnings;
 
-# use Cwd qw(abs_path);
-# use File::Spec;
-# use File::Basename qw(basename);
-# use File::Glob qw(bsd_glob);
+# Symlish::LinkItem - Represents a single symlink operation.
+# Each LinkItem maps one source file/directory to one target location.
 
+# new(%args) - Constructor for LinkItem.
+# Params (via %args):
+#   source - Absolute path to source file in dotfiles
+#   target - Absolute path to destination symlink location
+# Returns: Blessed LinkItem object
 sub new {
     my ($class, %args) = @_;
 
@@ -19,45 +22,56 @@ sub new {
     }, $class;
 }
 
-# Accessors
+# Accessors - Read-only access to object properties
+# source() - Returns absolute path to source file in dotfiles
+# target() - Returns absolute path to symlink destination
+# backup() - Returns path to backup file (target + '.bak')
+# type()   - Returns 'file' or 'directory'
 sub source { $_[0]->{source} }
 sub target { $_[0]->{target} }
 sub backup { $_[0]->{backup} }
 sub type   { $_[0]->{type}   }
 
-# Check if symlink points to our source
+# is_here() - Checks if symlink exists and points to our source.
+# Returns: True if target is a symlink pointing to $self->source
 sub is_here {
     my ($self) = @_;
     return 0 unless -l $self->{target};
     return readlink($self->{target}) eq $self->source;
 }
 
-# Check if target is a symlink (possibly pointing elsewhere)
+# is_symlink() - Checks if target path is any symlink.
+# Returns: True if target is a symlink (regardless of where it points)
 sub is_symlink {
     my ($self) = @_;
     return -l $self->{target};
 }
 
-# Check if backup file exists
+# has_backup() - Checks if a backup file exists for this target.
+# Returns: True if {target}.bak exists
 sub has_backup {
     my ($self) = @_;
     return -e $self->{backup};
 }
 
-# Check if we can make a backup (target is a regular file, not a symlink)
+# can_backup() - Checks if target can be backed up.
+# Only regular files (not symlinks or directories) can be backed up.
+# Returns: True if target is a regular file and not a symlink
 sub can_backup {
     my ($self) = @_;
     return -f $self->{target} && !-l $self->{target};
 }
 
-# Check if source is empty (empty file or directory)
+# is_source_empty() - Checks if source file/directory is empty.
+# Empty means: zero-byte file OR directory with no entries.
+# Returns: True if source is empty
 sub is_source_empty {
     my ($self) = @_;
     return 1 if -f $self->{source} && -z $self->{source}; # Empty file
 
     if (-d $self->{source}) {
         opendir(my $dh, $self->{source}) or return 0;
-        my @entries = grep { $_ !~ /^\.\.$/ } readdir($dh);
+        my @entries = grep { !/^\.{1,2}$/ } readdir($dh);
         closedir($dh);
         return @entries == 0;
     }
@@ -65,15 +79,19 @@ sub is_source_empty {
     return 0;
 }
 
-# Create backup of existing file
+# create_backup() - Renames target to target.bak.
+# Only acts if can_backup() is true and no backup exists.
+# Dies: If rename fails
 sub create_backup {
     my ($self) = @_;
     return unless $self->can_backup && !$self->has_backup;
     rename $self->{target}, $self->{backup}
-        or die "Failed to create backup $!";
+        or die "Failed to create backup: $!";
 }
 
-# Restore backup
+# restore_backup() - Renames target.bak back to target.
+# Only acts if backup exists.
+# Dies: If rename fails
 sub restore_backup {
     my ($self) = @_;
     return unless $self->has_backup;
@@ -81,14 +99,16 @@ sub restore_backup {
         or die "Failed to restore backup $!";
 }
 
-# Create the symlink
+# create_symlink() - Creates symlink from target to source.
+# Dies: If symlink creation fails
 sub create_symlink {
     my ($self) = @_;
     symlink $self->{source}, $self->{target}
         or die "Failed to create symlink: $!";
 }
 
-# Remove the symlink
+# remove_symlink() - Deletes the symlink at target path.
+# Dies: If unlink fails
 sub remove_symlink {
     my ($self) = @_;
     unlink $self->{target}
