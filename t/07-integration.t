@@ -93,33 +93,30 @@ JSON
     my $vscode_home = File::Spec->catdir($home, '.config', 'Code');
     make_path($vscode_home);
     
-    # Write symlish.conf.yaml
-    _write_file(File::Spec->catfile($dotfiles, 'symlish.conf.yaml'), <<"YAML");
-link:
-  bash:
-    target: bash/*
-    paths:
-      - $home
-  git:
-    target: git/*
-    paths:
-      - $home
-  vscode:
-    target: vscode/*
-    paths:
-      - /nonexistent/windows/path
-      - $vscode_home
-  emacs:
-    target: emacs/*
-    ignore: true
-    paths:
-      - $home
-  empty:
-    target: empty/*
-    ignore-empty: true
-    paths:
-      - $home
-YAML
+    # Write symlish.conf.ini
+    _write_file(File::Spec->catfile($dotfiles, 'symlish.conf.ini'), <<"INI");
+[bash]
+target = bash/*
+paths = $home
+
+[git]
+target = git/*
+paths = $home
+
+[vscode]
+target = vscode/*
+paths = /nonexistent/windows/path, $vscode_home
+
+[emacs]
+target = emacs/*
+ignore = true
+paths = $home
+
+[empty]
+target = empty/*
+ignore-empty = true
+paths = $home
+INI
 
     return {
         root => $root,

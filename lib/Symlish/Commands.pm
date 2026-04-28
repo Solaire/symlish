@@ -31,9 +31,18 @@ sub do_link {
         # If already linked, skip
         next if $item->is_here;
 
-        # Conflict: symlink exists but points elsewhere
+        # Conflict: a symlink exists but points elsewhere
         if ($item->is_symlink) {
-            push @yellow, format_line(2, "Conflict: ${ \$item->target } (symlink exists)");
+            if ($target->conflict eq 'overwrite') {
+                unless ($dry_run) {
+                    $item->remove_symlink;
+                }
+                push @yellow, format_line(2, "Overwriting conflict: ${ \$item->target }");
+            }
+            else {
+                push @yellow, format_line(2, "Conflict: ${ \$item->target } (symlink exists, skipping)");
+                next;
+            }
         }
 
         # Create backup if needed

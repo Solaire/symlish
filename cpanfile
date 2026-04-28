@@ -2,7 +2,7 @@
 # Install with: cpanm --installdeps .
 
 # Runtime dependencies
-requires 'YAML::PP', '>= 0.035';   # YAML parsing for config files
+# (none - all runtime dependencies are Perl core modules)
 
 # Core modules (included with Perl, listed for documentation)
 requires 'Getopt::Long';           # CLI option parsing
