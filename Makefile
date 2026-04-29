@@ -1,15 +1,17 @@
 # Makefile for Symlish
 #
 # Usage:
-#   make deps       - Install dependencies from cpanfile
 #   make test       - Run the test suite
-#   make lint       - Run Perl::Critic static analysis
-#   make tidy       - Format code with Perl::Tidy
-#   make install    - Install symlish globally
+#   make install    - Install symlish globally (may require sudo)
+#   make upgrade    - Alias for install; safe to run over an existing install
 #   make uninstall  - Remove global installation
 #   make clean      - Remove generated files
 #
-# For global installation, you may need sudo:
+# Optional code-quality targets (require Perl::Critic / Perl::Tidy):
+#   make lint       - Run Perl::Critic static analysis
+#   make tidy       - Format code with Perl::Tidy
+#
+# For global installation you may need sudo:
 #   sudo make install
 
 SHELL := /bin/bash
@@ -28,7 +30,6 @@ TEST_DIR    := t
 # Perl settings
 PERL        := perl
 PROVE       := prove
-CPANM       := cpanm
 CRITIC      := perlcritic
 TIDY        := perltidy
 
@@ -39,26 +40,11 @@ YELLOW := \033[0;33m
 BLUE   := \033[0;34m
 NC     := \033[0m  # No Color
 
-.PHONY: all deps deps-dev test test-verbose test-docker lint tidy install uninstall clean help
+.PHONY: all test test-verbose test-file lint lint-strict tidy tidy-check \
+        install upgrade uninstall install-user uninstall-user run clean help
 
 # Default target
 all: test
-
-#=============================================================================
-# Dependencies
-#=============================================================================
-
-## Install runtime and test dependencies
-deps:
-	@echo -e "$(BLUE)==> Installing dependencies...$(NC)"
-	@$(CPANM) --installdeps . --notest
-	@echo -e "$(GREEN)==> Dependencies installed$(NC)"
-
-## Install development dependencies (includes Perl::Critic, Perl::Tidy)
-deps-dev: deps
-	@echo -e "$(BLUE)==> Installing development dependencies...$(NC)"
-	@$(CPANM) --notest Perl::Critic Perl::Tidy
-	@echo -e "$(GREEN)==> Development dependencies installed$(NC)"
 
 #=============================================================================
 # Testing
@@ -79,14 +65,8 @@ test-verbose:
 test-file:
 	@$(PROVE) -lv $(FILE)
 
-## Run an end-to-end test using a fresh Debian-based Docker container
-test-docker:
-	@echo -e "$(BLUE)==> Running Docker end-to-end tests...$(NC)"
-	@bash scripts/build_docker.sh
-	@echo -e "$(GREEN)==> Docker tests passed$(NC)"
-
 #=============================================================================
-# Code Quality
+# Code Quality (optional - requires Perl::Critic / Perl::Tidy)
 #=============================================================================
 
 ## Run Perl::Critic static analysis
@@ -118,7 +98,7 @@ tidy-check:
 # Installation
 #=============================================================================
 
-## Install symlish globally (may require sudo)
+## Install symlish globally (may require sudo). Safe to re-run for upgrades.
 install: test
 	@echo -e "$(BLUE)==> Installing symlish to $(PREFIX)...$(NC)"
 	
@@ -147,6 +127,9 @@ install: test
 	
 	@echo -e "$(GREEN)==> Installation complete!$(NC)"
 	@echo -e "    Run 'symlish help' to get started"
+
+## Upgrade an existing installation (alias for install)
+upgrade: install
 
 ## Remove global installation
 uninstall:
@@ -192,20 +175,17 @@ help:
 	@echo "Usage: make [target]"
 	@echo ""
 	@echo "Targets:"
-	@echo "  deps          Install runtime and test dependencies"
-	@echo "  deps-dev      Install development dependencies (critic, tidy)"
-	@echo ""
 	@echo "  test          Run the test suite"
 	@echo "  test-verbose  Run tests with verbose output"
 	@echo "  test-file     Run specific test (FILE=t/00-config.t)"
-	@echo "  test-docker   Run end-to-end tests in Docker container"
 	@echo ""
-	@echo "  lint          Run Perl::Critic (severity 4)"
-	@echo "  lint-strict   Run Perl::Critic (severity 3)"
-	@echo "  tidy          Format code with Perl::Tidy"
+	@echo "  lint          Run Perl::Critic (severity 4)  [requires Perl::Critic]"
+	@echo "  lint-strict   Run Perl::Critic (severity 3)  [requires Perl::Critic]"
+	@echo "  tidy          Format code with Perl::Tidy    [requires Perl::Tidy]"
 	@echo "  tidy-check    Check formatting without changes"
 	@echo ""
 	@echo "  install       Install globally to $(PREFIX) (may need sudo)"
+	@echo "  upgrade       Upgrade an existing installation (alias for install)"
 	@echo "  uninstall     Remove global installation"
 	@echo "  install-user  Install to ~/.local (no sudo)"
 	@echo "  uninstall-user Remove user installation"
@@ -215,9 +195,9 @@ help:
 	@echo "  help          Show this help message"
 	@echo ""
 	@echo "Examples:"
-	@echo "  make deps                          # Install dependencies"
 	@echo "  make test                          # Run all tests"
 	@echo "  make run ARGS=\"status ~/dotfiles\" # Test locally"
 	@echo "  sudo make install                  # Install globally"
+	@echo "  sudo make upgrade                  # Upgrade existing install"
 	@echo "  make install-user                  # Install to ~/.local"
 	@echo ""

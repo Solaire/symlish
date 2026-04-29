@@ -1,3 +1,7 @@
+1.0.1
+[-] Removed cpanfile, installation script, and docker testing script
+[ ] Moved away from YAML-based configuration to INI configuration with custom parser.
+
 1.0.0
 [ ] Moved away from Ruby implementation in favour of Perl 5. One of the main reasons is better experience with tooling and version management
 [+] Support for following features:

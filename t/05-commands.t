@@ -12,13 +12,25 @@ use Test::More;
 use File::Temp qw(tempdir);
 use File::Spec;
 use File::Path qw(make_path remove_tree);
-use Capture::Tiny qw(capture);
 
 use FindBin qw($RealBin);
 use lib "$RealBin/../lib";
 
 use Symlish::LinkTarget;
 use Symlish::Commands qw(do_link do_unlink do_status);
+
+# Capture STDOUT from a code block using only core modules.
+sub _capture {
+    my ($code) = @_;
+    my $output = '';
+    open(my $fh, '>', \$output) or die "Cannot create capture handle: $!";
+    my $old = select($fh);
+    eval { $code->() };
+    my $err = $@;
+    select($old);
+    die $err if $err;
+    return $output;
+}
 
 #=============================================================================
 # Setup: Create a mock dotfiles structure
@@ -63,9 +75,9 @@ subtest 'do_link creates symlinks' => sub {
     my $options = { 'dry-run' => 0 };
     
     # Capture output
-    my ($stdout, $stderr, $exit) = capture {
+    my $stdout = _capture(sub {
         do_link($target, $options);
-    };
+    });
     
     # Check symlinks were created
     my $bashrc_link = File::Spec->catfile($home, '.bashrc');
@@ -96,9 +108,9 @@ subtest 'do_link dry-run mode' => sub {
     my $options = { 'dry-run' => 1 };
     
     # Capture output
-    my ($stdout, $stderr, $exit) = capture {
+    my $stdout = _capture(sub {
         do_link($target, $options);
-    };
+    });
     
     # Check symlinks were NOT created
     my $bashrc_link = File::Spec->catfile($home, '.bashrc');
@@ -129,7 +141,7 @@ subtest 'do_link creates backup' => sub {
     
     my $options = { 'dry-run' => 0 };
     
-    capture { do_link($target, $options) };
+    _capture(sub { do_link($target, $options) });
     
     # Check backup was created
     my $backup = "$existing_bashrc.bak";
@@ -158,7 +170,7 @@ subtest 'do_link skips empty files' => sub {
     
     my $options = { 'dry-run' => 0 };
     
-    my ($stdout) = capture { do_link($target, $options) };
+    my $stdout = _capture(sub { do_link($target, $options) });
     
     # empty.txt should be skipped
     my $empty_link = File::Spec->catfile($home, 'empty.txt');
@@ -184,13 +196,13 @@ subtest 'do_unlink removes symlinks' => sub {
     my $options = { 'dry-run' => 0 };
     
     # First, create the links
-    capture { do_link($target, $options) };
+    _capture(sub { do_link($target, $options) });
     
     my $bashrc_link = File::Spec->catfile($home, '.bashrc');
     ok(-l $bashrc_link, 'Symlink exists before unlink');
     
     # Now unlink
-    capture { do_unlink($target, $options) };
+    _capture(sub { do_unlink($target, $options) });
     
     ok(!-e $bashrc_link, 'Symlink removed after unlink');
 };
@@ -217,11 +229,11 @@ subtest 'do_unlink restores backups' => sub {
     my $options = { 'dry-run' => 0 };
     
     # Link (creates backup)
-    capture { do_link($target, $options) };
+    _capture(sub { do_link($target, $options) });
     ok(-e "$bashrc.bak", 'Backup created');
     
     # Unlink (restores backup)
-    capture { do_unlink($target, $options) };
+    _capture(sub { do_unlink($target, $options) });
     
     ok(-e $bashrc, '.bashrc restored');
     ok(!-l $bashrc, '.bashrc is a regular file, not symlink');
@@ -245,13 +257,13 @@ subtest 'do_unlink dry-run mode' => sub {
     );
     
     # Create links first
-    capture { do_link($target, { 'dry-run' => 0 }) };
+    _capture(sub { do_link($target, { 'dry-run' => 0 }) });
     
     my $bashrc_link = File::Spec->catfile($home, '.bashrc');
     ok(-l $bashrc_link, 'Symlink exists');
     
     # Dry-run unlink
-    my ($stdout) = capture { do_unlink($target, { 'dry-run' => 1 }) };
+    my $stdout = _capture(sub { do_unlink($target, { 'dry-run' => 1 }) });
     
     ok(-l $bashrc_link, 'Symlink still exists after dry-run');
     like($stdout, qr/Would unlink/, 'Dry-run output shows "Would unlink"');
@@ -273,14 +285,14 @@ subtest 'do_status shows status' => sub {
     );
     
     # Status before linking
-    my ($stdout1) = capture { do_status($target) };
+    my $stdout1 = _capture(sub { do_status($target) });
     like($stdout1, qr/not linked/, 'Shows "not linked" before linking');
     
     # Create links
-    capture { do_link($target, { 'dry-run' => 0 }) };
+    _capture(sub { do_link($target, { 'dry-run' => 0 }) });
     
     # Status after linking
-    my ($stdout2) = capture { do_status($target) };
+    my $stdout2 = _capture(sub { do_status($target) });
     like($stdout2, qr/->/, 'Shows arrow indicating symlink');
 };
 
@@ -302,8 +314,8 @@ subtest 'do_link skips already linked' => sub {
     my $options = { 'dry-run' => 0 };
     
     # Link twice
-    capture { do_link($target, $options) };
-    my ($stdout2) = capture { do_link($target, $options) };
+    _capture(sub { do_link($target, $options) });
+    my $stdout2 = _capture(sub { do_link($target, $options) });
     
     # Second run should be quiet (links already exist)
     my $bashrc_link = File::Spec->catfile($home, '.bashrc');

@@ -8,7 +8,6 @@ use strict;
 use warnings;
 
 use Test::More;
-use Test::Exception;
 use File::Temp qw(tempdir);
 use File::Spec;
 use File::Path qw(make_path);
@@ -25,9 +24,8 @@ my $tempdir = tempdir(CLEANUP => 1);
 # Test: Missing config file
 #=============================================================================
 subtest 'Missing config file' => sub {
-    throws_ok { load_config($tempdir) }
-        qr/not found/,
-        'Dies when symlish.conf.ini is missing';
+    eval { load_config($tempdir) };
+    like($@, qr/not found/, 'Dies when symlish.conf.ini is missing');
 };
 
 #=============================================================================
@@ -93,9 +91,8 @@ this is not valid ini syntax
 paths = ~/
 INI
 
-    throws_ok { load_config($dir) }
-        qr/Unrecognized line/i,
-        'Dies on unrecognized INI syntax';
+    eval { load_config($dir) };
+    like($@, qr/Unrecognized line/i, 'Dies on unrecognized INI syntax');
 };
 
 #=============================================================================
@@ -107,9 +104,8 @@ subtest 'Empty config' => sub {
 ; Just a comment, no sections
 INI
 
-    throws_ok { load_config($dir) }
-        qr/no target sections defined/,
-        'Dies when config has no sections';
+    eval { load_config($dir) };
+    like($@, qr/no target sections defined/, 'Dies when config has no sections');
 };
 
 #=============================================================================
@@ -125,9 +121,8 @@ target = bash/*
 paths = ~/
 INI
 
-    throws_ok { load_config($dir) }
-        qr/outside of a section/,
-        'Dies when key appears before any section header';
+    eval { load_config($dir) };
+    like($@, qr/outside of a section/, 'Dies when key appears before any section header');
 };
 
 #=============================================================================
@@ -140,9 +135,8 @@ subtest 'Entry missing paths' => sub {
 target = bash/*
 INI
 
-    throws_ok { load_config($dir) }
-        qr/missing 'paths'/,
-        'Dies when entry is missing paths';
+    eval { load_config($dir) };
+    like($@, qr/missing 'paths'/, 'Dies when entry is missing paths');
 };
 
 #=============================================================================
@@ -155,9 +149,8 @@ subtest 'Entry missing target' => sub {
 paths = ~/
 INI
 
-    throws_ok { load_config($dir) }
-        qr/missing 'target'/,
-        'Dies when entry is missing target';
+    eval { load_config($dir) };
+    like($@, qr/missing 'target'/, 'Dies when entry is missing target');
 };
 
 #=============================================================================
@@ -192,9 +185,8 @@ conflict = invalid_value
 paths = ~/
 INI
 
-    throws_ok { load_config($dir) }
-        qr/Invalid 'conflict' value/,
-        'Dies on invalid conflict value';
+    eval { load_config($dir) };
+    like($@, qr/Invalid 'conflict' value/, 'Dies on invalid conflict value');
 };
 
 #=============================================================================
@@ -214,8 +206,8 @@ conflict = overwrite
 paths = ~/
 INI
 
-    lives_ok { load_config($dir) }
-        'Accepts valid conflict values (skip, overwrite)';
+    eval { load_config($dir) };
+    ok(!$@, 'Accepts valid conflict values (skip, overwrite)') or diag $@;
 };
 
 #=============================================================================
@@ -231,8 +223,8 @@ target = bash/*
 ignore = $val
 paths = ~/
 INI
-        lives_ok { load_config($dir) }
-            "Accepts ignore: $val as valid boolean";
+        eval { load_config($dir) };
+        ok(!$@, "Accepts ignore: $val as valid boolean") or diag $@;
     }
 };
 
@@ -249,8 +241,8 @@ target = bash/*
 ignore-empty = $val
 paths = ~/
 INI
-        lives_ok { load_config($dir) }
-            "Accepts ignore-empty: $val as valid boolean";
+        eval { load_config($dir) };
+        ok(!$@, "Accepts ignore-empty: $val as valid boolean") or diag $@;
     }
 };
 
@@ -270,8 +262,8 @@ target = bash/*
 paths = ~/
 INI
 
-    lives_ok { load_config($dir) }
-        'Config with comments and blank lines loads without error';
+    eval { load_config($dir) };
+    ok(!$@, 'Config with comments and blank lines loads without error') or diag $@;
 };
 
 #=============================================================================

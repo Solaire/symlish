@@ -8,7 +8,6 @@ use strict;
 use warnings;
 
 use Test::More;
-use Test::Exception;
 
 use FindBin qw($RealBin);
 use lib "$RealBin/../lib";
@@ -36,9 +35,8 @@ subtest 'parse_command with valid commands' => sub {
 subtest 'parse_command with invalid command' => sub {
     my @supported = qw(link unlink status);
     
-    throws_ok { parse_command('invalid', @supported) }
-        qr/Unknown command/,
-        'Dies on unknown command';
+    eval { parse_command('invalid', @supported) };
+    like($@, qr/Unknown command/, 'Dies on unknown command');
     
     # Note: empty string triggers help (exit 0), which we can't easily test
     # in a subtest without special handling. Skip this test.
@@ -58,22 +56,19 @@ subtest 'parse_directory with valid directory' => sub {
 # Test: parse_directory - missing argument
 #=============================================================================
 subtest 'parse_directory with missing argument' => sub {
-    throws_ok { parse_directory(undef) }
-        qr/Missing.*directory/i,
-        'Dies when directory argument is missing';
-    
-    throws_ok { parse_directory('') }
-        qr/Missing.*directory/i,
-        'Dies when directory argument is empty';
+    eval { parse_directory(undef) };
+    like($@, qr/Missing.*directory/i, 'Dies when directory argument is missing');
+
+    eval { parse_directory('') };
+    like($@, qr/Missing.*directory/i, 'Dies when directory argument is empty');
 };
 
 #=============================================================================
 # Test: parse_directory - non-existent directory
 #=============================================================================
 subtest 'parse_directory with non-existent directory' => sub {
-    throws_ok { parse_directory('/nonexistent/path/xyz123') }
-        qr/not a valid directory/,
-        'Dies when directory does not exist';
+    eval { parse_directory('/nonexistent/path/xyz123') };
+    like($@, qr/not a valid directory/, 'Dies when directory does not exist');
 };
 
 #=============================================================================
@@ -128,9 +123,8 @@ subtest 'parse_options with --only' => sub {
 subtest 'parse_options mutual exclusion' => sub {
     my @args = ('--ignore', 'bash', '--only', 'git');
     
-    throws_ok { parse_options(\@args) }
-        qr/cannot be used together/,
-        '--ignore and --only are mutually exclusive';
+    eval { parse_options(\@args) };
+    like($@, qr/cannot be used together/, '--ignore and --only are mutually exclusive');
 };
 
 #=============================================================================
