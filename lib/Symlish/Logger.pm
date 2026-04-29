@@ -32,7 +32,7 @@ sub yellow { "\e[33m$_[0]\e[0m" }
 sub blue   { "\e[34m$_[0]\e[0m" }
 sub magenta{ "\e[35m$_[0]\e[0m" }
 sub cyan   { "\e[36m$_[0]\e[0m" }
-sub white  { "\e[97m$_[0]\e[0m" }
+sub white  { "\e[37m$_[0]\e[0m" }
 sub gray   { "\e[90m$_[0]\e[0m" }
 
 sub bright_red    { "\e[91m$_[0]\e[0m" }

@@ -12,7 +12,7 @@ Managing my configuration began with a simple Bash script that quickly grew into
 
 You provide Symlish with a target directory (your dotfiles root), and a command such as `link` or `unlink`. The tool will then:
 
-1. Load and validate the `symlish.conf.yaml` configuration file
+1. Load and validate the `symlish.conf.ini` configuration file
 2. Expand glob patterns to find all source files and directories
 3. Determine the first suitable destination path for each target group
 4. Create symlinks in the destination directory for matching files/directories
@@ -27,13 +27,15 @@ You provide Symlish with a target directory (your dotfiles root), and a command 
 - Backup restoration - Backups are automatically restored when symlinks are removed
 - Dry-run mode - Preview changes with `--dry-run` before applying them
 - Filtering - Use `--only` or `--ignore` to process specific targets
+- No dependencies - Uses only Perl core modules; no CPAN packages required
 
 ---
 
 ## Requirements
 
 - Perl 5.20+ (tested with 5.36)
-- cpanm (App::cpanminus) for dependency management
+
+No external Perl modules are required. All runtime and test dependencies are part of the Perl core.
 
 ## Installation
 
@@ -44,31 +46,18 @@ You provide Symlish with a target directory (your dotfiles root), and a command 
 git clone https://github.com/solaire/symlish.git
 cd symlish
 
-# Set up local Perl environment (if needed)
-./script/install.sh
-
-# Install dependencies
-cpanm --installdeps .
-
-# Run symlish
+# Run directly
 perl bin/Main.pl <command> <directory> [options]
 ```
 
 ### Global Installation
 
-For system-wide installation so you can run it from anywhere:
-
 ```bash
-cd symlish/perl
-
-# Install dependencies
-cpanm --installdeps .
-
 # Install globally (may require sudo)
 sudo make install
 
-# Alternatively, install to user's local bin
-sudo make install-user
+# Alternatively, install to user's local bin (no sudo required)
+make install-user
 ```
 
 After installation, you can use:
@@ -76,23 +65,30 @@ After installation, you can use:
 symlish link ~/dotfiles --dry-run
 ```
 
+### Upgrading
+
+Re-running `make install` (or `make upgrade`) safely overwrites an existing installation:
+
+```bash
+sudo make upgrade
+# or for a user install:
+make install-user
+```
+
 ### Add as a Git Submodule
 
 From your dotfiles repository root:
 
 ```bash
-# Add symlish as a submodule
 git submodule add https://github.com/solaire/symlish.git symlish
-
-# Commit your changes
 git add .gitmodules symlish
 git commit -m "Add symlish as a submodule"
 ```
 
-Then install dependencies:
+Then run directly or install:
 ```bash
-cd symlish/perl
-cpanm --installdeps .
+cd symlish
+make install-user
 ```
 
 ---
@@ -149,53 +145,47 @@ symlish link ~/dotfiles --ignore vscode,emacs
 
 ## Configuration
 
-Create a `symlish.conf.yaml` file in your dotfiles directory:
+Create a `symlish.conf.ini` file in your dotfiles directory. Each `[section]` defines a target group:
 
-```yaml
-link:
-  # Shell configuration
-  bash:
-    target: bash/*           # Glob pattern for source files
-    paths:                   # Destination paths (first existing is used)
-      - ~/
-    ignore-empty: true       # Skip empty files
+```ini
+; Shell configuration
+[bash]
+target = bash/*
+paths = ~/
+ignore-empty = true
 
-  # Git configuration
-  git:
-    target: git/*
-    paths:
-      - ~/
+; Git configuration
+[git]
+target = git/*
+paths = ~/
 
-  # VS Code (cross-platform example)
-  vscode:
-    target: vscode/*
-    paths:
-      - $APPDATA/Code/       # Windows
-      - ~/.config/Code/      # Linux
+; VS Code (cross-platform: first existing path is used)
+[vscode]
+target = vscode/*
+paths = $APPDATA/Code/, ~/.config/Code/
 
-  # Temporarily disabled
-  emacs:
-    target: emacs/.doom.d
-    ignore: true             # Skip this target entirely
-    paths:
-      - ~/
+; Temporarily disabled
+[emacs]
+target = emacs/.doom.d
+ignore = true
+paths = ~/
 ```
 
 ### Configuration Options
 
-| Option         | Type    | Default | Description                                     |
-| -------------- | ------- | ------- | ----------------------------------------------- |
-| `target`       | string  | —       | Glob pattern relative to dotfiles root          |
-| `paths`        | array   | —       | List of destination paths (first valid is used) |
-| `ignore`       | boolean | `false` | Skip this target entirely                       |
-| `ignore-empty` | boolean | `true`  | Skip empty files and directories                |
-| `conflict`     | string  | `skip`  | How to handle conflicts: `skip` or `overwrite`  |
+| Option         | Type    | Default | Description                                             |
+| -------------- | ------- | ------- | ------------------------------------------------------- |
+| `target`       | string  | —       | Glob pattern relative to dotfiles root                  |
+| `paths`        | list    | —       | Comma-separated destination paths (first valid is used) |
+| `ignore`       | boolean | `false` | Skip this target entirely                               |
+| `ignore-empty` | boolean | `true`  | Skip empty files and directories                        |
+| `conflict`     | string  | `skip`  | How to handle conflicts: `skip` or `overwrite`          |
 
 ### Glob Patterns
 
 - `bash/*`      — All files in `bash/` directory (including dotfiles)
 - `config/**`   — All files recursively in `config/` directory
-- `git/*.pl`    — All files ending in `.pl` files in `git/` directory
+- `git/*.conf`  — All `.conf` files in `git/` directory
 - `vim/.vimrc`  — Single specific file
 
 ### Path Expansion
@@ -211,8 +201,6 @@ Paths support:
 ### Running Tests
 
 ```bash
-cd perl
-
 # Run all tests
 make test
 
@@ -222,8 +210,6 @@ make test-verbose
 # Run a specific test file
 make test-file FILE=t/00-config.t
 
-# Run end-to-end test in a fresh Linux Docker container (requires Docker)
-make test-docker
 ```
 
 ### Project Structure
@@ -231,17 +217,17 @@ make test-docker
 ```
 symlish/
 ├── bin/
-│   └── Main.pl          # Entry point
+│   └── Main.pl           # Entry point
 ├── lib/
 │   └── Symlish/
-│       ├── Commands.pm  # link/unlink/status logic
-│       ├── Config.pm    # YAML config loading
-│       ├── LinkItem.pm  # Single symlink operations
-│       ├── LinkTarget.pm# Target group handling
-│       ├── Logger.pm    # Colored output
-│       ├── Options.pm   # CLI argument parsing
-│       └── Targets.pm   # Target building/filtering
-├── t/                   # Test suite
+│       ├── Commands.pm   # link/unlink/status logic
+│       ├── Config.pm     # INI config loading
+│       ├── LinkItem.pm   # Single symlink operations
+│       ├── LinkTarget.pm # Target group handling
+│       ├── Logger.pm     # Colored output
+│       ├── Options.pm    # CLI argument parsing
+│       └── Targets.pm    # Target building/filtering
+├── t/                    # Test suite
 │   ├── 00-config.t
 │   ├── 01-options.t
 │   ├── 02-link-item.t
@@ -250,23 +236,17 @@ symlish/
 │   ├── 05-commands.t
 │   ├── 06-logger.t
 │   └── 07-integration.t
-├── cpanfile             # Perl dependencies
-└── scripts/
-    └── install.sh       # Environment setup
-    └── build-docker.sh  # Environment setup
 ```
 
 ### Dependencies
 
-Runtime:
-- `YAML::PP` — YAML configuration parsing
+All dependencies are Perl core modules — no CPAN installation required.
 
-Testing:
-- `Test::More` — Core test framework
-- `Test::Exception` — Exception testing
-- `Capture::Tiny` — Output capture
-- `File::Temp` — Temporary files/directories
+Runtime: `Getopt::Long`, `File::Spec`, `File::Basename`, `File::Glob`, `Cwd`, `FindBin`, `Exporter`
 
+Testing: `Test::More`, `File::Temp`, `File::Path`
+
+Optional (code quality): `Perl::Critic`, `Perl::Tidy`
 
 ## License
 

@@ -11,7 +11,7 @@ use Getopt::Long qw(GetOptionsFromArray :config pass_through);
 # Versioning
 my $VERSION_MAJOR = 1;
 my $VERSION_MINOR = 0;
-my $VERSION_PATCH = 0;
+my $VERSION_PATCH = 1;
 
 # Usage string
 my $USAGE = <<'USAGE';

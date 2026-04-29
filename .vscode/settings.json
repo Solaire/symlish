@@ -1,5 +1,0 @@
-{
-    "perl.perlInc": [
-        "${workspaceFolder}/lib"
-    ]
-}

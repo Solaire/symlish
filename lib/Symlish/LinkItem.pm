@@ -96,7 +96,7 @@ sub restore_backup {
     my ($self) = @_;
     return unless $self->has_backup;
     rename $self->{backup}, $self->{target}
-        or die "Failed to restore backup $!";
+        or die "Failed to restore backup: $!";
 }
 
 # create_symlink() - Creates symlink from target to source.

@@ -2,13 +2,12 @@
 #
 # 00-config.t - Tests for Symlish::Config module
 #
-# Tests configuration loading, YAML parsing, and validation logic.
+# Tests configuration loading, INI parsing, and validation logic.
 
 use strict;
 use warnings;
 
 use Test::More;
-use Test::Exception;
 use File::Temp qw(tempdir);
 use File::Spec;
 use File::Path qw(make_path);
@@ -25,9 +24,8 @@ my $tempdir = tempdir(CLEANUP => 1);
 # Test: Missing config file
 #=============================================================================
 subtest 'Missing config file' => sub {
-    throws_ok { load_config($tempdir) }
-        qr/not found/,
-        'Dies when symlish.conf.yaml is missing';
+    eval { load_config($tempdir) };
+    like($@, qr/not found/, 'Dies when symlish.conf.ini is missing');
 };
 
 #=============================================================================
@@ -35,16 +33,14 @@ subtest 'Missing config file' => sub {
 #=============================================================================
 subtest 'Valid minimal config' => sub {
     my $dir = tempdir(CLEANUP => 1);
-    _write_yaml($dir, <<'YAML');
-link:
-  bash:
-    target: bash/*
-    paths:
-      - ~/
-YAML
+    _write_ini($dir, <<'INI');
+[bash]
+target = bash/*
+paths = ~/
+INI
 
     my $config = load_config($dir);
-    
+
     ok(defined $config, 'Config loaded successfully');
     is(ref($config), 'HASH', 'Config is a hash ref');
     ok(exists $config->{link}, 'Config has link key');
@@ -59,80 +55,74 @@ YAML
 #=============================================================================
 subtest 'Multiple config entries' => sub {
     my $dir = tempdir(CLEANUP => 1);
-    _write_yaml($dir, <<'YAML');
-link:
-  bash:
-    target: bash/*
-    paths:
-      - ~/
-  vscode:
-    target: vscode/**
-    paths:
-      - ~/.config/Code/
-  git:
-    target: git/*
-    ignore: true
-    paths:
-      - ~/
-YAML
+    _write_ini($dir, <<'INI');
+[bash]
+target = bash/*
+paths = ~/
+
+[vscode]
+target = vscode/**
+paths = ~/.config/Code/
+
+[git]
+target = git/*
+ignore = true
+paths = ~/
+INI
 
     my $config = load_config($dir);
-    
+
     is(scalar keys %{$config->{link}}, 3, 'All three entries loaded');
-    ok(exists $config->{link}{bash}, 'bash entry exists');
+    ok(exists $config->{link}{bash},   'bash entry exists');
     ok(exists $config->{link}{vscode}, 'vscode entry exists');
-    ok(exists $config->{link}{git}, 'git entry exists');
-    # YAML::PP converts 'true' to 1, so check for truthy value
+    ok(exists $config->{link}{git},    'git entry exists');
     ok($config->{link}{git}{ignore}, 'ignore flag is truthy');
 };
 
 #=============================================================================
-# Test: Invalid YAML syntax
+# Test: Invalid INI syntax (unrecognized line)
 #=============================================================================
-subtest 'Invalid YAML syntax' => sub {
+subtest 'Invalid INI syntax' => sub {
     my $dir = tempdir(CLEANUP => 1);
-    _write_yaml($dir, <<'YAML');
-link:
-  bash:
-    target: bash/*
-    paths:
-  - invalid indentation here
-YAML
+    _write_ini($dir, <<'INI');
+[bash]
+target = bash/*
+this is not valid ini syntax
+paths = ~/
+INI
 
-    throws_ok { load_config($dir) }
-        qr/Yaml syntax|ERROR/i,
-        'Dies on invalid YAML syntax';
+    eval { load_config($dir) };
+    like($@, qr/Unrecognized line/i, 'Dies on unrecognized INI syntax');
 };
 
 #=============================================================================
-# Test: Missing 'link' block
+# Test: Empty config (no sections)
 #=============================================================================
-subtest 'Missing link block' => sub {
+subtest 'Empty config' => sub {
     my $dir = tempdir(CLEANUP => 1);
-    _write_yaml($dir, <<'YAML');
-other_key:
-  something: value
-YAML
+    _write_ini($dir, <<'INI');
+; Just a comment, no sections
+INI
 
-    throws_ok { load_config($dir) }
-        qr/'link' block is missing/,
-        'Dies when link block is missing';
+    eval { load_config($dir) };
+    like($@, qr/no target sections defined/, 'Dies when config has no sections');
 };
 
 #=============================================================================
-# Test: link is not a hash
+# Test: Key outside a section
 #=============================================================================
-subtest 'link is not a hash' => sub {
+subtest 'Key outside a section' => sub {
     my $dir = tempdir(CLEANUP => 1);
-    _write_yaml($dir, <<'YAML');
-link:
-  - item1
-  - item2
-YAML
+    _write_ini($dir, <<'INI');
+orphan_key = some_value
 
-    throws_ok { load_config($dir) }
-        qr/'link' must be a hash/,
-        'Dies when link is an array instead of hash';
+[bash]
+target = bash/*
+paths = ~/
+INI
+
+    eval { load_config($dir) };
+    like($@, qr/outside of a section/, 'Dies when key appears before any section header');
 };
 
 #=============================================================================
@@ -140,15 +130,13 @@ YAML
 #=============================================================================
 subtest 'Entry missing paths' => sub {
     my $dir = tempdir(CLEANUP => 1);
-    _write_yaml($dir, <<'YAML');
-link:
-  bash:
-    target: bash/*
-YAML
+    _write_ini($dir, <<'INI');
+[bash]
+target = bash/*
+INI
 
-    throws_ok { load_config($dir) }
-        qr/missing 'paths'/,
-        'Dies when entry is missing paths';
+    eval { load_config($dir) };
+    like($@, qr/missing 'paths'/, 'Dies when entry is missing paths');
 };
 
 #=============================================================================
@@ -156,33 +144,33 @@ YAML
 #=============================================================================
 subtest 'Entry missing target' => sub {
     my $dir = tempdir(CLEANUP => 1);
-    _write_yaml($dir, <<'YAML');
-link:
-  bash:
-    paths:
-      - ~/
-YAML
+    _write_ini($dir, <<'INI');
+[bash]
+paths = ~/
+INI
 
-    throws_ok { load_config($dir) }
-        qr/missing 'target'/,
-        'Dies when entry is missing target';
+    eval { load_config($dir) };
+    like($@, qr/missing 'target'/, 'Dies when entry is missing target');
 };
 
 #=============================================================================
-# Test: paths is not an array
+# Test: Paths are parsed as array
 #=============================================================================
-subtest 'paths is not an array' => sub {
+subtest 'Paths are parsed as an array' => sub {
     my $dir = tempdir(CLEANUP => 1);
-    _write_yaml($dir, <<'YAML');
-link:
-  bash:
-    target: bash/*
-    paths: ~/
-YAML
+    _write_ini($dir, <<'INI');
+[vscode]
+target = vscode/*
+paths = $APPDATA/Code/, ~/.config/Code/
+INI
 
-    throws_ok { load_config($dir) }
-        qr/'paths' must be an array/,
-        'Dies when paths is a string instead of array';
+    my $config = load_config($dir);
+    my $paths = $config->{link}{vscode}{paths};
+
+    is(ref($paths), 'ARRAY', 'paths is an array ref');
+    is(scalar @$paths, 2,    'paths has two entries');
+    is($paths->[0], '$APPDATA/Code/',  'first path correct');
+    is($paths->[1], '~/.config/Code/', 'second path correct');
 };
 
 #=============================================================================
@@ -190,18 +178,15 @@ YAML
 #=============================================================================
 subtest 'Invalid conflict value' => sub {
     my $dir = tempdir(CLEANUP => 1);
-    _write_yaml($dir, <<'YAML');
-link:
-  bash:
-    target: bash/*
-    conflict: invalid_value
-    paths:
-      - ~/
-YAML
+    _write_ini($dir, <<'INI');
+[bash]
+target = bash/*
+conflict = invalid_value
+paths = ~/
+INI
 
-    throws_ok { load_config($dir) }
-        qr/Invalid 'conflict' value/,
-        'Dies on invalid conflict value';
+    eval { load_config($dir) };
+    like($@, qr/Invalid 'conflict' value/, 'Dies on invalid conflict value');
 };
 
 #=============================================================================
@@ -209,22 +194,20 @@ YAML
 #=============================================================================
 subtest 'Valid conflict values' => sub {
     my $dir = tempdir(CLEANUP => 1);
-    _write_yaml($dir, <<'YAML');
-link:
-  bash:
-    target: bash/*
-    conflict: skip
-    paths:
-      - ~/
-  git:
-    target: git/*
-    conflict: overwrite
-    paths:
-      - ~/
-YAML
+    _write_ini($dir, <<'INI');
+[bash]
+target = bash/*
+conflict = skip
+paths = ~/
 
-    lives_ok { load_config($dir) }
-        'Accepts valid conflict values (skip, overwrite)';
+[git]
+target = git/*
+conflict = overwrite
+paths = ~/
+INI
+
+    eval { load_config($dir) };
+    ok(!$@, 'Accepts valid conflict values (skip, overwrite)') or diag $@;
 };
 
 #=============================================================================
@@ -232,19 +215,16 @@ YAML
 #=============================================================================
 subtest 'Boolean validation for ignore' => sub {
     my $dir = tempdir(CLEANUP => 1);
-    
-    # Valid boolean values
+
     for my $val (qw(true false 0 1 True FALSE)) {
-        _write_yaml($dir, <<"YAML");
-link:
-  bash:
-    target: bash/*
-    ignore: $val
-    paths:
-      - ~/
-YAML
-        lives_ok { load_config($dir) }
-            "Accepts ignore: $val as valid boolean";
+        _write_ini($dir, <<"INI");
+[bash]
+target = bash/*
+ignore = $val
+paths = ~/
+INI
+        eval { load_config($dir) };
+        ok(!$@, "Accepts ignore: $val as valid boolean") or diag $@;
     }
 };
 
@@ -253,30 +233,49 @@ YAML
 #=============================================================================
 subtest 'Boolean validation for ignore-empty' => sub {
     my $dir = tempdir(CLEANUP => 1);
-    
+
     for my $val (qw(true false 0 1)) {
-        _write_yaml($dir, <<"YAML");
-link:
-  bash:
-    target: bash/*
-    ignore-empty: $val
-    paths:
-      - ~/
-YAML
-        lives_ok { load_config($dir) }
-            "Accepts ignore-empty: $val as valid boolean";
+        _write_ini($dir, <<"INI");
+[bash]
+target = bash/*
+ignore-empty = $val
+paths = ~/
+INI
+        eval { load_config($dir) };
+        ok(!$@, "Accepts ignore-empty: $val as valid boolean") or diag $@;
     }
 };
 
 #=============================================================================
-# Helper: Write YAML config file
+# Test: Comments and blank lines are ignored
 #=============================================================================
-sub _write_yaml {
+subtest 'Comments and blank lines are ignored' => sub {
+    my $dir = tempdir(CLEANUP => 1);
+    _write_ini($dir, <<'INI');
+; This is a semicolon comment
+# This is a hash comment
+
+[bash]
+; inline section comment
+target = bash/*
+
+paths = ~/
+INI
+
+    eval { load_config($dir) };
+    ok(!$@, 'Config with comments and blank lines loads without error') or diag $@;
+};
+
+#=============================================================================
+# Helper: Write INI config file
+#=============================================================================
+sub _write_ini {
     my ($dir, $content) = @_;
-    my $file = File::Spec->catfile($dir, 'symlish.conf.yaml');
+    my $file = File::Spec->catfile($dir, 'symlish.conf.ini');
     open my $fh, '>', $file or die "Cannot write $file: $!";
     print $fh $content;
     close $fh;
 }
 
 done_testing();
+

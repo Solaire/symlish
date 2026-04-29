@@ -39,7 +39,7 @@ subtest 'Color functions' => sub {
     like(blue('text'), qr/\e\[34m.*\e\[0m/, 'blue wraps in ANSI codes');
     like(magenta('text'), qr/\e\[35m.*\e\[0m/, 'magenta wraps in ANSI codes');
     like(cyan('text'), qr/\e\[36m.*\e\[0m/, 'cyan wraps in ANSI codes');
-    like(white('text'), qr/\e\[97m.*\e\[0m/, 'white wraps in ANSI codes');
+    like(white('text'), qr/\e\[37m.*\e\[0m/, 'white wraps in ANSI codes');
     like(gray('text'), qr/\e\[90m.*\e\[0m/, 'gray wraps in ANSI codes');
 };
 
