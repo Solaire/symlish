@@ -3,10 +3,10 @@ package Symlish::LinkTarget;
 use strict;
 use warnings;
 
-use Cwd qw(abs_path);
 use File::Spec;
 use File::Basename qw(basename);
 use File::Glob qw(bsd_glob);
+use Cwd qw(abs_path);
 
 use Symlish::LinkItem;
 
@@ -46,7 +46,7 @@ sub new {
 # stable regardless of where symlish was invoked from.
 # Params:
 #   $paths_ref  - Array ref of candidate destination paths (absolute or relative)
-#   $config_ref - Absolute path to the config directory, used as the base for
+#   $config_dir - Absolute path to the config directory, used as the base for
 #                 relative candidates
 sub _resolve_path {
     my ($self, $paths_ref, $config_dir) = @_;
@@ -123,7 +123,7 @@ sub _build_items {
         push @{ $self->{items} }, Symlish::LinkItem->new(
             source => $source,
             target => $dest,
-        )
+        );
     }
 }
 
@@ -162,14 +162,14 @@ sub _to_bool {
 # Performs two substitutions:
 #   1. $VAR is replaced with $ENV{VAR}, or with empty string if unset.
 #   2. A leading '~' is replaced with user's home directory ($HOME on
-#      POSIX, failing back to $USERPROFILE on Windows where HOME is 
+#      POSIX, falling back to $USERPROFILE on Windows where HOME is 
 #      usually unset), If neither is set, '~' is left untouched.
 # Notes: 
 #   1. Unset $VAR collapses to empty string, which can turn a path like
 #      '$APPDATA/Code/' into '/Code' on a system without APPDATA. Callers
 #      rely on the existence check in _resolve_path to discard such candidates.
 #   2. Windows-specific paths (e.g. %APPDATA%) are not supported. Symlish is 
-#      indented to be run from minGW or MSYS environments.
+#      intended to be run from minGW or MSYS environments.
 # Params:
 #   $raw - Path string from config
 # Returns: Expanded path string

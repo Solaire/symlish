@@ -8,8 +8,9 @@ use strict;
 use warnings;
 
 use Test::More;
-use File::Temp qw(tempdir);
+
 use File::Spec;
+use File::Temp qw(tempdir);
 use File::Path qw(make_path);
 
 use FindBin qw($RealBin);
@@ -31,7 +32,7 @@ subtest 'build_targets' => sub {
         dir => $tempdir,
         profiles => {
             default => {
-                    bash => {
+                bash => {
                     target => 'bash/*',
                     paths => [$dest],
                 },
@@ -151,7 +152,7 @@ subtest 'pick_profile auto-selects the only profile' => sub {
     is(pick_profile($config_ref, undef), 'default', 'Implicit default profile auto-selected');
 
     my $named_ref = { profiles => { personal => { bash => {} } } };
-    is(pick_profile($named_ref, undef), 'personal', 'Single names profile auto-selected');
+    is(pick_profile($named_ref, undef), 'personal', 'Single named profile auto-selected');
 };
 
 #=============================================================================
@@ -177,7 +178,7 @@ subtest 'pick_profile requires --profile when there are multiple profiles' => su
     like($@, qr/missing profile/, 'Dies on missing --profile');
 
     eval { pick_profile($config_ref, 'unknown') };
-    like($@, qr/unknown profile: 'unknown'/, 'Dies on unknown --profile');
+    like($@, qr/unknown profile 'unknown'/, 'Dies on unknown --profile');
 
     is(pick_profile($config_ref, 'work'), 'work', 'Returns the requested profile when it exists');
 };

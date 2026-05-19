@@ -2,7 +2,7 @@
 #
 # 06-logger.t - Tests for Symlish::Logger module
 #
-# Tests ANSI color formatting and text utilities.
+# Tests ANSI colour formatting and text utilities.
 
 use strict;
 use warnings;
@@ -73,12 +73,12 @@ subtest 'Warning logging' => sub {
 #=============================================================================
 subtest 'Info logging - Colours' => sub {
     my $stdout = capture( sub { info('text'); });
-    like($stdout, qr/\e\[0m.*\e\[0m/, 'Default color is reset');
+    like($stdout, qr/\e\[0m.*\e\[0m/, 'Default colour is reset');
 
     $stdout = capture( sub { info('text', 'invalid'); });
-    like($stdout, qr/\e\[0m.*\e\[0m/, 'invalid color resolves to reset');
+    like($stdout, qr/\e\[0m.*\e\[0m/, 'invalid colour resolves to reset');
 
-    # Each color should wrap text in escape codes
+    # Each colour should wrap text in escape codes
     $stdout = capture( sub { info('text', 'red'); });
     like($stdout, qr/\e\[31m.*\e\[0m/, 'red wraps in ANSI codes');
 

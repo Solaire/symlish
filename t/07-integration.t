@@ -8,8 +8,9 @@ use strict;
 use warnings;
 
 use Test::More;
-use File::Temp qw(tempdir);
+
 use File::Spec;
+use File::Temp qw(tempdir);
 use File::Path qw(make_path);
 
 use FindBin qw($RealBin);

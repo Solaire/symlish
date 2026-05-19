@@ -7,8 +7,9 @@ use Exporter 'import';
 our @EXPORT_OK = qw(load_config);
 
 use Cwd qw(abs_path);
-use Symlish::Logger qw(info trace warning);
 use File::Spec;
+
+use Symlish::Logger qw(info trace warning);
 
 # load_config($directory) - Loads and validates symlish.conf.ini.
 # Params:
@@ -46,7 +47,7 @@ sub load_config {
 # _parse_ini($file) - Parses an INI config file into a hash.
 # Recognised syntax:
 #   - '[[name]]'    Top-level profile header
-#   - '[name'       Config entry header; must follow a [[profile]] or trigger
+#   - '[name]'      Config entry header; must follow a [[profile]] or trigger
 #                   implicit 'default' profile, but never both (see _validate_config)
 #   - 'key = value' Assignment (legal only inside a [name] entry)
 #   - ';' or '#'    Line comments and blank lines
@@ -118,7 +119,7 @@ sub _parse_ini {
             next;
         }
 
-        die "ERROR: Unrecognized line in config: '$line'\n";
+        die "ERROR: Unrecognised line in config: '$line'\n";
     }
 
     close $fh;
@@ -185,7 +186,7 @@ sub _validate_entry {
 # Rejects two invalid cases:
 #   - empty config (both flags false)
 #   - mixed layout where [entry] appears before any [[profile]] and 
-#     [[profile]] also appears )both flags true
+#     [[profile]] also appears (both flags true)
 # Params:
 #   $implicit_default - True if an implicit 'default' profile was created
 #                       because a bare [entry] preceded any [[profile]]

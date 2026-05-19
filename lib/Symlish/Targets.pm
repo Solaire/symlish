@@ -17,7 +17,7 @@ use Symlish::Logger qw(trace);
 #   $config_ref - Hash ref returned by load_config()
 #   $requested  - Profile name from --profile, or undef if the flag was not given
 # Returns: The chosen profile name (always a defined string)
-# Dies: On missing on unknown profile when more than one is available in config
+# Dies: On missing or unknown profile when more than one is available in config
 sub pick_profile {
     my ($config_ref, $requested) = @_;
 
@@ -31,7 +31,7 @@ sub pick_profile {
     die "ERROR: missing profile\n"
         unless defined $requested;
 
-    die "ERROR: unknown profile: '$requested'\n"
+    die "ERROR: unknown profile '$requested'\n"
         unless exists $profiles->{$requested};
 
     return $requested;
@@ -41,7 +41,7 @@ sub pick_profile {
 # entry under the chosen top-level profile
 # Params:
 #   $config_ref - Hash ref returned by load_config()
-#   $profile    - Name of the top-level profile to materialize (e.g. 'default'
+#   $profile    - Name of the top-level profile to materialise (e.g. 'default'
 #                 for legacy configs, or 'personal' / 'work' for multi-configs)
 # Returns: List of Symlish::LinkTarget objects (one per entry in the profile)
 sub build_targets {
