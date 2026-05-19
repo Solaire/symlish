@@ -10,15 +10,15 @@ use Symlish::Options    qw(parse_command parse_directory parse_options);
 use Symlish::Config     qw(load_config);
 use Symlish::Targets    qw(build_targets filter_targets);
 use Symlish::Logger     qw(info);
-use Symlish::Commands   qw(do_link do_unlink do_status);
+use Symlish::Commands   qw(do_apply do_clean do_status);
 
 
 # main() - Entry point for the symlish CLI application.
 # Parses command-line arguments, loads configuration, builds targets,
-# and dispatches to the appropriate command handler (link/unlink/status).
+# and dispatches to the appropriate command handler (apply/clean/status).
 sub main {
     # Parse the command and directory
-    my $command     = parse_command   (shift @ARGV, qw(link unlink status));
+    my $command     = parse_command   (shift @ARGV, qw(apply clean status));
     my $directory   = parse_directory (shift @ARGV);
     my %options     = parse_options   (\@ARGV);
 
@@ -44,8 +44,8 @@ sub main {
         }
 
         # Dispatch command
-        if    ($command eq 'link')   { do_link  ($target, \%options) }
-        elsif ($command eq 'unlink') { do_unlink($target, \%options) }
+        if    ($command eq 'apply')  { do_apply ($target, \%options) }
+        elsif ($command eq 'clean')  { do_clean ($target, \%options) }
         elsif ($command eq 'status') { do_status($target)              }
     }
 

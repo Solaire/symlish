@@ -14,23 +14,12 @@ use File::Path qw(make_path);
 
 use FindBin qw($RealBin);
 use lib "$RealBin/../lib";
+use lib "$RealBin/lib";
 
 use Symlish::Config qw(load_config);
 use Symlish::Targets qw(build_targets filter_targets);
-use Symlish::Commands qw(do_link do_unlink do_status);
-
-# Capture STDOUT from a code block using only core modules.
-sub _capture {
-    my ($code) = @_;
-    my $output = '';
-    open(my $fh, '>', \$output) or die "Cannot create capture handle: $!";
-    my $old = select($fh);
-    eval { $code->() };
-    my $err = $@;
-    select($old);
-    die $err if $err;
-    return $output;
-}
+use Symlish::Commands qw(do_apply do_clean do_status);
+use SymlishTest qw(capture);
 
 #=============================================================================
 # Setup: Create a complete mock dotfiles repository
@@ -139,9 +128,9 @@ INI
 }
 
 #=============================================================================
-# Test: Full link workflow
+# Test: Full apply workflow
 #=============================================================================
-subtest 'Full link workflow' => sub {
+subtest 'Full apply workflow' => sub {
     my $mock = create_mock_dotfiles_repo();
     
     # Load config
@@ -152,12 +141,12 @@ subtest 'Full link workflow' => sub {
     my @targets = build_targets($config);
     ok(scalar(@targets) >= 4, 'Multiple targets built');
     
-    # Link all targets
+    # Apply all targets
     for my $target (@targets) {
         next unless $target->is_valid;
         next if $target->ignore;
         
-        _capture(sub { do_link($target, { 'dry-run' => 0 }) });
+        capture(sub { do_apply($target, { 'dry-run' => 0 }) });
     }
     
     # Verify bash symlinks
@@ -181,32 +170,32 @@ subtest 'Full link workflow' => sub {
 };
 
 #=============================================================================
-# Test: Full unlink workflow
+# Test: Full clean workflow
 #=============================================================================
-subtest 'Full unlink workflow' => sub {
+subtest 'Full clean workflow' => sub {
     my $mock = create_mock_dotfiles_repo();
     
     my $config = load_config($mock->{dotfiles});
     my @targets = build_targets($config);
     
-    # Link first
+    # Apply first
     for my $target (@targets) {
         next unless $target->is_valid;
         next if $target->ignore;
-        _capture(sub { do_link($target, { 'dry-run' => 0 }) });
+        capture(sub { do_apply($target, { 'dry-run' => 0 }) });
     }
     
     my $bashrc = File::Spec->catfile($mock->{home}, '.bashrc');
-    ok(-l $bashrc, '.bashrc exists before unlink');
+    ok(-l $bashrc, '.bashrc exists before clean');
     
-    # Unlink
+    # Clean
     for my $target (@targets) {
         next unless $target->is_valid;
         next if $target->ignore;
-        _capture(sub { do_unlink($target, { 'dry-run' => 0 }) });
+        capture(sub { do_clean($target, { 'dry-run' => 0 }) });
     }
     
-    ok(!-e $bashrc, '.bashrc removed after unlink');
+    ok(!-e $bashrc, '.bashrc removed after clean');
 };
 
 #=============================================================================
@@ -222,15 +211,15 @@ subtest 'Status reporting' => sub {
     my ($bash_target) = grep { $_->key eq 'bash' } @targets;
     ok($bash_target, 'Found bash target');
     
-    # Status before linking
-    my $before = _capture(sub { do_status($bash_target) });
+    # Status before creating symlinks
+    my $before = capture(sub { do_status($bash_target) });
     like($before, qr/not linked/, 'Status shows "not linked" before');
     
-    # Link
-    _capture(sub { do_link($bash_target, { 'dry-run' => 0 }) });
+    # Apply
+    capture(sub { do_apply($bash_target, { 'dry-run' => 0 }) });
     
-    # Status after linking
-    my $after = _capture(sub { do_status($bash_target) });
+    # Status after creating symlinks
+    my $after = capture(sub { do_status($bash_target) });
     like($after, qr/->/, 'Status shows symlink arrow after');
 };
 
@@ -249,15 +238,15 @@ subtest 'Backup and restore cycle' => sub {
     my @targets = build_targets($config);
     my ($bash_target) = grep { $_->key eq 'bash' } @targets;
     
-    # Link (should create backup)
-    _capture(sub { do_link($bash_target, { 'dry-run' => 0 }) });
+    # Apply (should create backup)
+    capture(sub { do_apply($bash_target, { 'dry-run' => 0 }) });
     
     ok(-l $bashrc, '.bashrc is now a symlink');
     ok(-e "$bashrc.bak", 'Backup was created');
     is(_read_file("$bashrc.bak"), $original_content, 'Backup has original content');
     
-    # Unlink (should restore backup)
-    _capture(sub { do_unlink($bash_target, { 'dry-run' => 0 }) });
+    # Clean (should restore backup)
+    capture(sub { do_clean($bash_target, { 'dry-run' => 0 }) });
     
     ok(-e $bashrc, '.bashrc exists after unlink');
     ok(!-l $bashrc, '.bashrc is not a symlink');
@@ -280,14 +269,14 @@ subtest 'Filter with --only' => sub {
     is(scalar(@filtered), 1, 'Only one target after filter');
     is($filtered[0]->key, 'bash', 'Filtered target is bash');
     
-    # Link only bash
-    _capture(sub { do_link($filtered[0], { 'dry-run' => 0 }) });
+    # Apply only bash
+    capture(sub { do_apply($filtered[0], { 'dry-run' => 0 }) });
     
     my $bashrc = File::Spec->catfile($mock->{home}, '.bashrc');
     my $gitconfig = File::Spec->catfile($mock->{home}, '.gitconfig');
     
-    ok(-l $bashrc, 'bash files linked');
-    ok(!-e $gitconfig, 'git files NOT linked (filtered out)');
+    ok(-l $bashrc, 'bash files applied');
+    ok(!-e $gitconfig, 'git files NOT applied (filtered out)');
 };
 
 #=============================================================================
@@ -302,17 +291,17 @@ subtest 'Filter with --ignore' => sub {
     # Ignore bash
     my @filtered = filter_targets(\@targets, { ignore => ['bash', 'emacs', 'empty'] });
     
-    # Link remaining
+    # Apply remaining
     for my $target (@filtered) {
         next unless $target->is_valid;
-        _capture(sub { do_link($target, { 'dry-run' => 0 }) });
+        capture(sub { do_apply($target, { 'dry-run' => 0 }) });
     }
     
     my $bashrc = File::Spec->catfile($mock->{home}, '.bashrc');
     my $gitconfig = File::Spec->catfile($mock->{home}, '.gitconfig');
     
-    ok(!-e $bashrc, 'bash NOT linked (ignored)');
-    ok(-l $gitconfig, 'git linked');
+    ok(!-e $bashrc, 'bash NOT applied (ignored)');
+    ok(-l $gitconfig, 'git applied');
 };
 
 #=============================================================================
@@ -330,24 +319,24 @@ subtest 'Dry-run safety' => sub {
     my @targets = build_targets($config);
     my ($bash_target) = grep { $_->key eq 'bash' } @targets;
     
-    # Dry-run link
-    my $out1 = _capture(sub { do_link($bash_target, { 'dry-run' => 1 }) });
+    # Dry-run apply
+    my $out1 = capture(sub { do_apply($bash_target, { 'dry-run' => 1 }) });
     
     ok(-f $bashrc, '.bashrc still a regular file');
     ok(!-l $bashrc, '.bashrc NOT a symlink');
     ok(!-e "$bashrc.bak", 'No backup created');
     like($out1, qr/Would/, 'Output says "Would"');
     
-    # Actually link
-    _capture(sub { do_link($bash_target, { 'dry-run' => 0 }) });
+    # Actually apply
+    capture(sub { do_apply($bash_target, { 'dry-run' => 0 }) });
     ok(-l $bashrc, '.bashrc is now a symlink');
     
-    # Dry-run unlink
-    my $out2 = _capture(sub { do_unlink($bash_target, { 'dry-run' => 1 }) });
+    # Dry-run clean
+    my $out2 = capture(sub { do_clean($bash_target, { 'dry-run' => 1 }) });
     
-    ok(-l $bashrc, '.bashrc still a symlink after dry-run unlink');
+    ok(-l $bashrc, '.bashrc still a symlink after dry-run clean');
     ok(-e "$bashrc.bak", 'Backup still exists');
-    like($out2, qr/Would/, 'Unlink output says "Would"');
+    like($out2, qr/Would/, 'Clean output says "Would"');
 };
 
 #=============================================================================

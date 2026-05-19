@@ -22,12 +22,12 @@ use SymlishTest qw(capture);
 # Test: parse_command - valid commands
 #=============================================================================
 subtest 'parse_command with valid commands' => sub {
-    my @supported = qw(link unlink status);
+    my @supported = qw(apply clean status);
 
-    is(parse_command('link', @supported), 'link', 
-        'Accepts link command');
-    is(parse_command('unlink', @supported), 'unlink', 
-        'Accepts unlink command');
+    is(parse_command('apply', @supported), 'apply', 
+        'Accepts apply command');
+    is(parse_command('clean', @supported), 'clean', 
+        'Accepts clean command');
     is(parse_command('status', @supported), 'status', 
         'Accepts status command');
 };
@@ -36,7 +36,7 @@ subtest 'parse_command with valid commands' => sub {
 # Test: parse_command - invalid commands
 #=============================================================================
 subtest 'parse_command with invalid command' => sub {
-    my @supported = qw(link unlink status);
+    my @supported = qw(apply clean status);
     
     eval { parse_command('invalid', @supported) };
     like($@, qr/Unknown command/, 'Dies on unknown command');
