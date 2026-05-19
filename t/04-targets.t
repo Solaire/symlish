@@ -15,7 +15,7 @@ use File::Path qw(make_path);
 use FindBin qw($RealBin);
 use lib "$RealBin/../lib";
 
-use Symlish::Targets qw(build_targets filter_targets);
+use Symlish::Targets qw(pick_profile build_targets filter_targets);
 
 #=============================================================================
 # Test: build_targets creates LinkTarget objects
@@ -28,20 +28,22 @@ subtest 'build_targets' => sub {
     make_path($dest);
     
     my $config_ref = {
-        config_dir => $tempdir,
-        link => {
-            bash => {
-                target => 'bash/*',
-                paths => [$dest],
-            },
-            git => {
-                target => 'git/*',
-                paths => [$dest],
+        dir => $tempdir,
+        profiles => {
+            default => {
+                    bash => {
+                    target => 'bash/*',
+                    paths => [$dest],
+                },
+                git => {
+                    target => 'git/*',
+                    paths => [$dest],
+                },
             },
         },
     };
     
-    my @targets = build_targets($config_ref);
+    my @targets = build_targets($config_ref, 'default');
     
     is(scalar(@targets), 2, 'Two targets created');
     
@@ -60,15 +62,17 @@ subtest 'filter_targets with --only' => sub {
     make_path($dest);
     
     my $config_ref = {
-        config_dir => $tempdir,
-        link => {
-            bash => { target => 'bash/*', paths => [$dest] },
-            git => { target => 'git/*', paths => [$dest] },
-            vscode => { target => 'vscode/*', paths => [$dest] },
+        dir => $tempdir,
+        profiles => {
+            default => {
+                bash => { target => 'bash/*', paths => [$dest] },
+                git => { target => 'git/*', paths => [$dest] },
+                vscode => { target => 'vscode/*', paths => [$dest] },
+            },
         },
     };
     
-    my @targets = build_targets($config_ref);
+    my @targets = build_targets($config_ref, 'default');
     
     my $options = { only => ['bash', 'git'] };
     my @filtered = filter_targets(\@targets, $options);
@@ -90,15 +94,17 @@ subtest 'filter_targets with --ignore' => sub {
     make_path($dest);
     
     my $config_ref = {
-        config_dir => $tempdir,
-        link => {
-            bash => { target => 'bash/*', paths => [$dest] },
-            git => { target => 'git/*', paths => [$dest] },
-            vscode => { target => 'vscode/*', paths => [$dest] },
+        dir => $tempdir,
+        profiles => {
+            default => {
+                bash => { target => 'bash/*', paths => [$dest] },
+                git => { target => 'git/*', paths => [$dest] },
+                vscode => { target => 'vscode/*', paths => [$dest] },
+            },
         },
     };
     
-    my @targets = build_targets($config_ref);
+    my @targets = build_targets($config_ref, 'default');
     
     my $options = { ignore => ['vscode'] };
     my @filtered = filter_targets(\@targets, $options);
@@ -120,19 +126,60 @@ subtest 'filter_targets with no filter' => sub {
     make_path($dest);
     
     my $config_ref = {
-        config_dir => $tempdir,
-        link => {
-            bash => { target => 'bash/*', paths => [$dest] },
-            git => { target => 'git/*', paths => [$dest] },
+        dir => $tempdir,
+        profiles => {
+            default => {
+                bash => { target => 'bash/*', paths => [$dest] },
+                git => { target => 'git/*', paths => [$dest] },
+            },
         },
     };
     
-    my @targets = build_targets($config_ref);
+    my @targets = build_targets($config_ref, 'default');
     
     my $options = {};
     my @filtered = filter_targets(\@targets, $options);
     
     is(scalar(@filtered), 2, 'All targets returned when no filter');
+};
+
+#=============================================================================
+# Test: pick_profile - auto-select when there is only one profile
+#=============================================================================
+subtest 'pick_profile auto-selects the only profile' => sub {
+    my $config_ref = { profiles => { default => { bash => {} } } };
+    is(pick_profile($config_ref, undef), 'default', 'Implicit default profile auto-selected');
+
+    my $named_ref = { profiles => { personal => { bash => {} } } };
+    is(pick_profile($named_ref, undef), 'personal', 'Single names profile auto-selected');
+};
+
+#=============================================================================
+# Test: pick_profile - auto-select ignores caller's request when there is only one profile
+#=============================================================================
+subtest 'pick_profile ignores --profile when there is only one profile' => sub {
+    my $config_ref = { profiles => { personal => { bash => {} } } };
+    is(pick_profile($config_ref, 'default'), 'personal', '--profile ignored when only one profile exists');
+};
+
+#=============================================================================
+# Test: pick_profile - requires --profile when there are multiple profiles
+#=============================================================================
+subtest 'pick_profile requires --profile when there are multiple profiles' => sub {
+    my $config_ref = {
+        profiles => {
+            personal => { bash => {} },
+            work     => { git  => {} },
+        },
+    };
+
+    eval { pick_profile($config_ref, undef) };
+    like($@, qr/missing profile/, 'Dies on missing --profile');
+
+    eval { pick_profile($config_ref, 'unknown') };
+    like($@, qr/unknown profile: 'unknown'/, 'Dies on unknown --profile');
+
+    is(pick_profile($config_ref, 'work'), 'work', 'Returns the requested profile when it exists');
 };
 
 done_testing();

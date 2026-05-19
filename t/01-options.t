@@ -85,6 +85,7 @@ subtest 'parse_options with no options' => sub {
     ok(!defined $opts{ignore}, '--ignore is not set');
     ok(!defined $opts{only}, '--only is not set');
     ok(!$opts{verbose}, '--verbose is not set');
+    ok(!defined $opts{profile}, '--profile is not set');
 
     my $stdout = capture( sub { trace("Hello verbose"); });
     is($stdout, '', 'trace log not printed when --verbose is not set');
@@ -92,7 +93,7 @@ subtest 'parse_options with no options' => sub {
 
 
 #=============================================================================
-# Test: parse_options dies on unknown flags
+# Test: parse_options - die on unknown flags
 #=============================================================================
 subtest 'parse_options dies on unknown flags' => sub {
     my @args = ('--unknown-flag');
@@ -186,6 +187,16 @@ subtest 'parse_options - verbose flag (short)' => sub {
 
     my $stdout = capture(sub { trace("Hello verbose"); });
     like($stdout, qr/Hello verbose/, 'trace log is printed when -v is set');
+};
+
+#=============================================================================
+# Test: parse_options - profile option
+#=============================================================================
+subtest 'parse_options - profile option' => sub {
+    my @args = ('--profile', 'global');
+    my %opts = parse_options(\@args);
+
+    is($opts{profile}, 'global', 'Profile correctly extracted');
 };
 
 done_testing();
