@@ -6,7 +6,8 @@ use warnings;
 use Exporter 'import';
 our @EXPORT_OK = qw(parse_command parse_directory parse_options);
 
-use Getopt::Long qw(GetOptionsFromArray :config pass_through);
+use Getopt::Long qw(GetOptionsFromArray :config);
+use Symlish::Logger qw(set_verbose info);
 
 # Versioning
 my $VERSION_MAJOR = 1;
@@ -28,6 +29,7 @@ Options:
     --dry-run           Simulate without making changes
     --ignore  x,y,z     Comma-separated list of targets to skip
     --only    x,y,z     Process only these targets (mutually exclusive with --ignore)
+    --verbose, -v       Enable verbose logging
 
 Examples:
     symlish status ~/dotfiles
@@ -46,13 +48,13 @@ sub parse_command {
 
     # Handle help
     if (!$command || $command eq 'help' || $command eq '--help' || $command eq '-h') {
-        print $USAGE;
+        info ($USAGE);
         exit 0;
     }
 
     # Handle version
     if($command eq 'version' || $command eq '--version' || $command eq '-v') {
-        print "Symlish version $VERSION_MAJOR.$VERSION_MINOR.$VERSION_PATCH\n";
+        info ("Symlish version $VERSION_MAJOR.$VERSION_MINOR.$VERSION_PATCH\n");
         exit 0;
     }
 
@@ -61,7 +63,7 @@ sub parse_command {
         return $command if ($c eq $command);
     }
 
-    die "ERROR: Unknown command '$command'\n";
+    die "Unknown command '$command'\n";
 }
 
 # parse_directory($directory) - Validates the directory argument.
@@ -72,10 +74,10 @@ sub parse_command {
 sub parse_directory {
     my ($directory) = @_;
 
-    die "ERROR: Missing <directory> argument\n"
+    die "Missing <directory> argument\n"
         unless $directory;
 
-    die "ERROR: '$directory' is not a valid directory\n" 
+    die "'$directory' is not a valid directory\n" 
         unless -d $directory;
 
     return $directory;
@@ -84,18 +86,22 @@ sub parse_directory {
 # parse_options($argv_ref) - Parses command-line options.
 # Params:
 #   $argv_ref - Reference to @ARGV array
-# Returns: Hash of parsed options (dry-run, ignore, only)
+# Returns: Hash of parsed options (dry-run, ignore, only, verbose)
 # Dies: If --ignore and --only are used together
 sub parse_options {
     my ($argv_ref) = @_;
 
-    my %options = ('dry-run' => 0);
+    my %options = (
+        'dry-run' => 0,
+        'verbose' => 0,
+    );
 
     GetOptionsFromArray(
         $argv_ref,
         'dry-run'   => \$options{'dry-run'},
         'ignore=s'  => \$options{ignore},
         'only=s'    => \$options{only},
+        'verbose|v' => \$options{verbose},
     ) or die $USAGE;
 
     # Validate mutually-exclusive options
@@ -108,6 +114,9 @@ sub parse_options {
             $options{$key} = [ split /\s*,\s*/, $options{$key} ];
         }
     }
+
+    # Set verbose flag
+    set_verbose($options{verbose});
 
     return %options;
 }

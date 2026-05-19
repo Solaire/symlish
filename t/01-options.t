@@ -11,9 +11,12 @@ use Test::More;
 
 use FindBin qw($RealBin);
 use lib "$RealBin/../lib";
+use lib "$RealBin/lib";
 
 use Symlish::Options qw(parse_command parse_directory parse_options);
 use File::Temp qw(tempdir);
+use Symlish::Logger qw(trace);
+use SymlishTest qw(capture);
 
 #=============================================================================
 # Test: parse_command - valid commands
@@ -72,16 +75,6 @@ subtest 'parse_directory with non-existent directory' => sub {
 };
 
 #=============================================================================
-# Test: parse_options - dry-run flag
-#=============================================================================
-subtest 'parse_options with --dry-run' => sub {
-    my @args = ('--dry-run');
-    my %opts = parse_options(\@args);
-    
-    ok($opts{'dry-run'}, '--dry-run flag is set');
-};
-
-#=============================================================================
 # Test: parse_options - no options
 #=============================================================================
 subtest 'parse_options with no options' => sub {
@@ -91,6 +84,37 @@ subtest 'parse_options with no options' => sub {
     ok(!$opts{'dry-run'}, '--dry-run defaults to false');
     ok(!defined $opts{ignore}, '--ignore is not set');
     ok(!defined $opts{only}, '--only is not set');
+    ok(!$opts{verbose}, '--verbose is not set');
+
+    my $stdout = capture( sub { trace("Hello verbose"); });
+    is($stdout, '', 'trace log not printed when --verbose is not set');
+};
+
+
+#=============================================================================
+# Test: parse_options dies on unknown flags
+#=============================================================================
+subtest 'parse_options dies on unknown flags' => sub {
+    my @args = ('--unknown-flag');
+
+    my $stderr;
+    {
+        local *STDERR;
+        open(STDERR, '>', \$stderr) or die "Cannot reditect STDERR: $!";
+        eval { parse_options(\@args)};
+    }
+
+    ok($@, 'parse_options dies on unknown flag');
+};
+
+#=============================================================================
+# Test: parse_options - dry-run flag
+#=============================================================================
+subtest 'parse_options with --dry-run' => sub {
+    my @args = ('--dry-run');
+    my %opts = parse_options(\@args);
+    
+    ok($opts{'dry-run'}, '--dry-run flag is set');
 };
 
 #=============================================================================
@@ -136,6 +160,32 @@ subtest 'parse_options handles whitespace' => sub {
     
     is_deeply($opts{only}, ['bash', 'git', 'vscode'], 
         'Whitespace around commas is trimmed');
+};
+
+#=============================================================================
+# Test: parse_options - verbose flag (long)
+#=============================================================================
+subtest 'parse_options - verbose flag (long)' => sub {
+    my @args = ('--verbose');
+    my %opts = parse_options(\@args);
+
+    ok($opts{verbose}, '--verbose flag is set');
+
+    my $stdout = capture(sub { trace("Hello verbose"); });
+    like($stdout, qr/Hello verbose/, 'trace log is printed when --verbose is set');
+};
+
+#=============================================================================
+# Test: parse_options - verbose flag (short)
+#=============================================================================
+subtest 'parse_options - verbose flag (short)' => sub {
+    my @args = ('-v');
+    my %opts = parse_options(\@args);
+
+    ok($opts{verbose}, '-v flag is set');
+
+    my $stdout = capture(sub { trace("Hello verbose"); });
+    like($stdout, qr/Hello verbose/, 'trace log is printed when -v is set');
 };
 
 done_testing();

@@ -9,3 +9,6 @@ cover_db/
 
 # Perl tidy output (when not using -b)
 *.tdy
+
+# Temporary + dev testing
+.local/
