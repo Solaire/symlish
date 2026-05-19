@@ -13,8 +13,9 @@ use FindBin qw($RealBin);
 use lib "$RealBin/../lib";
 use lib "$RealBin/lib";
 
-use Symlish::Options qw(parse_command parse_directory parse_options);
 use File::Temp qw(tempdir);
+
+use Symlish::Options qw(parse_command parse_directory parse_options);
 use Symlish::Logger qw(trace);
 use SymlishTest qw(capture);
 
@@ -44,6 +45,23 @@ subtest 'parse_command with invalid command' => sub {
     # Note: empty string triggers help (exit 0), which we can't easily test
     # in a subtest without special handling. Skip this test.
 };
+
+#=============================================================================
+# Test: parse_command - reject pre-1.1.0 command names
+#=============================================================================
+# Version 1.1.0 has changed the command names:
+# link -> apply
+# unlink -> clean
+subtest 'parse_command rejects pre-1.1.0 command names' => sub {
+    my @supported = qw(apply clean status);
+
+    eval { parse_command('link', @supported) };
+    like($@, qr/Unknown command/, "Old 'link' command rejected");
+
+    eval { parse_command('unlink', @supported) };
+    like($@, qr/Unknown command/, "Old 'unlink' command rejected");
+};
+
 
 #=============================================================================
 # Test: parse_directory - valid directory
@@ -101,7 +119,7 @@ subtest 'parse_options dies on unknown flags' => sub {
     my $stderr;
     {
         local *STDERR;
-        open(STDERR, '>', \$stderr) or die "Cannot reditect STDERR: $!";
+        open(STDERR, '>', \$stderr) or die "Cannot redirect STDERR: $!";
         eval { parse_options(\@args)};
     }
 

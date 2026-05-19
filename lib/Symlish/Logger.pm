@@ -54,7 +54,7 @@ sub format_line {
 # Unknown or undefined $colour defaults to 'reset'.
 # Params:
 #   $msg    - Log message
-#   $colour - Key from %colours (e.g. 'red, 'green'); defaults to 'reset'
+#   $colour - Key from %colours (e.g. 'red', 'green'); defaults to 'reset'
 #             if missing or unknown.
 #   $indent - Number of spaces to prepend (defaults to 0).
 sub info {

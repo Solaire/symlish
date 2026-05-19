@@ -1,3 +1,17 @@
+1.1.0
+[+] Added verbose logging, controlled by `--verbose` and `-v` cli flag
+[+] Added support for profiles:
+    - Single config file can be used to define multiple independent groups
+    - Profile header is marked with `[[profile]]` syntax
+    - Backwards compatible with existing config files by adding an implicit `[[default]]` profile if no profiles are detected
+    - Profile selected with `--profile=value` cli flag (omitted if only one profile exists)
+[+] Added support for reverse config:
+    - Symlish can be used to "collect" files from the filesystem into a central directory, reverse of the original design
+    - `paths` and `targets` config fields now support relative and absolute paths
+[!] Changed the cli commands:
+    - `link` -> `apply`
+    - `unlink` -> `clean`
+
 1.0.1
 [-] Removed cpanfile, installation script, and docker testing script
 [ ] Moved away from YAML-based configuration to INI configuration with custom parser.

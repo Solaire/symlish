@@ -2,15 +2,16 @@
 #
 # 05-commands.t - Tests for Symlish::Commands module
 #
-# Integration tests for link, unlink, and status commands.
+# Integration tests for apply, clean, and status commands.
 # Uses a mock dotfiles directory structure.
 
 use strict;
 use warnings;
 
 use Test::More;
-use File::Temp qw(tempdir);
+
 use File::Spec;
+use File::Temp qw(tempdir);
 use File::Path qw(make_path remove_tree);
 
 use FindBin qw($RealBin);
@@ -259,7 +260,7 @@ subtest 'do_clean dry-run mode' => sub {
 };
 
 #=============================================================================
-# Test: do_status shows link status
+# Test: do_status shows status
 #=============================================================================
 subtest 'do_status shows status' => sub {
     my ($root, $dotfiles, $home) = setup_mock_dotfiles();
@@ -306,14 +307,108 @@ subtest 'do_apply skips already linked' => sub {
     capture(sub { do_apply($target, $options) });
     my $stdout2 = capture(sub { do_apply($target, $options) });
     
-    # Second run should be quiet (links already exist)
+    # Second run should be silent; every file hits the `is_here` early exit
+    # in do_apply, so no "Linked" / "Backed up" / "Conflict" output is emitted.
+    unlike($stdout2, qr/Linked|Backed up|Conflict/,
+        'Second run produces no link/backup/conflict output');
+
     my $bashrc_link = File::Spec->catfile($home, '.bashrc');
     ok(-l $bashrc_link, 'Symlink still exists');
-    
+
     # Count symlinks (should still be same)
-    is(readlink($bashrc_link), 
+    is(readlink($bashrc_link),
         File::Spec->catfile($dotfiles, 'bash', '.bashrc'),
         'Symlink unchanged after re-run');
+};
+
+#=============================================================================
+# Test: do_apply with "conflict = overwrite" replaces foreign symlinks
+#=============================================================================
+# Preexisting symlink that points somewhere other than our source. With
+# "conflict = overwrite", do_apply should drop it and re-link to our source.
+subtest 'do_apply with "conflict = overwrite"' => sub {
+    my ($root, $dotfiles, $home) = setup_mock_dotfiles();
+
+    # Plant a symlink at the destination pointing at an unrelated file.
+    my $bashrc  = File::Spec->catfile($home, '.bashrc');
+    my $foreign = File::Spec->catfile($home, 'foreign.txt');
+    write_file($foreign, "not ours");
+    symlink($foreign, $bashrc) or die "symlink failed: $!";
+
+    my $target = Symlish::LinkTarget->new(
+        key => 'bash',
+        entry => {
+            target   => 'bash/*',
+            paths    => [$home],
+            conflict => 'overwrite',
+        },
+        config_dir => $dotfiles,
+    );
+
+    my $stdout = capture( sub { do_apply($target, { 'dry-run' => 0 }) });
+    like($stdout, qr/Overwriting conflict/, 'Output mentions overwriting');
+    ok(-l $bashrc, '.bashrc is still a symlink');
+    is(readlink($bashrc), File::Spec->catfile($dotfiles, 'bash', '.bashrc'), 
+        '.bashrc now points to our source');
+};
+
+
+#=============================================================================
+# Test: do_apply with "conflict = skip" leaves foreign symlinks alone
+#=============================================================================
+# Same setup as above, but "conflict = skip" should leave the pre-existing
+# symlink intact.
+subtest 'do_apply with "conflict = skip"' => sub {
+    my ($root, $dotfiles, $home) = setup_mock_dotfiles();
+
+    # Plant a symlink at the destination pointing at an unrelated file.
+    my $bashrc  = File::Spec->catfile($home, '.bashrc');
+    my $foreign = File::Spec->catfile($home, 'foreign.txt');
+    write_file($foreign, "not ours");
+    symlink($foreign, $bashrc) or die "symlink failed: $!";
+
+    my $target = Symlish::LinkTarget->new(
+        key => 'bash',
+        entry => {
+            target   => 'bash/*',
+            paths    => [$home],
+            # conflict omitted -> defaults to 'skip'
+        },
+        config_dir => $dotfiles,
+    );
+
+    my $stdout = capture( sub { do_apply($target, { 'dry-run' => 0 }) });
+    like($stdout, qr/Conflict.*symlink exists, skipping/, 
+        'Output reports conflict and the skip');
+    ok(-l $bashrc, '.bashrc is still a symlink');
+    is(readlink($bashrc), $foreign, '.bashrc still points to the foreign source');
+};
+
+#=============================================================================
+# Test: do_apply with 'ignore-empty = false' links the empty file
+#=============================================================================
+# setup_mock_dotfiles() already creates an empty.txt in the bash dir. 
+# 'ignore-empty' defaults to true, so that case is covered in other tests. We 
+# need to flip the flag and verify that empty file is linked.
+subtest 'do_apply with "ignore-empty = false"' => sub {
+    my ($root, $dotfiles, $home) = setup_mock_dotfiles();
+
+    my $target = Symlish::LinkTarget->new(
+        key => 'bash',
+        entry => {
+            target         => 'bash/*',
+            paths          => [$home],
+            'ignore-empty' => 'false',
+        },
+        config_dir => $dotfiles,
+    );
+
+    my $stdout = capture( sub { do_apply($target, { 'dry-run' => 0 }) });
+    my $empty_link = File::Spec->catfile($home, 'empty.txt');
+
+    ok(-l $empty_link, 'empty.txt IS linked when "ignore-empty = false"');
+    unlike($stdout, qr/Skipping empty/,
+        'No "Skipping empty" output when "ignore-empty = false"');
 };
 
 done_testing();

@@ -6,6 +6,8 @@ use warnings;
 use Exporter 'import';
 our @EXPORT_OK = qw(capture capture_warnings write_file read_file write_ini);
 
+use File::Spec;
+
 # SymlishTest - Test helpers shared across t/*.t files.
 # Public API:
 #   capture($coderef)           - Invokes coderef and captures STDOUT into a string buffer

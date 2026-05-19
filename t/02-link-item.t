@@ -8,13 +8,14 @@ use strict;
 use warnings;
 
 use Test::More;
-use File::Temp qw(tempdir);
-use File::Spec;
-use File::Path qw(make_path remove_tree);
 
 use FindBin qw($RealBin);
 use lib "$RealBin/../lib";
 use lib "$RealBin/lib";
+
+use File::Spec;
+use File::Temp qw(tempdir);
+use File::Path qw(make_path remove_tree);
 
 use Symlish::LinkItem;
 use SymlishTest qw(write_file read_file);

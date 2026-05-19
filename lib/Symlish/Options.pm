@@ -11,8 +11,8 @@ use Symlish::Logger qw(set_verbose info);
 
 # Versioning
 my $VERSION_MAJOR = 1;
-my $VERSION_MINOR = 0;
-my $VERSION_PATCH = 1;
+my $VERSION_MINOR = 1;
+my $VERSION_PATCH = 0;
 
 # Usage string
 my $USAGE = <<'USAGE';
@@ -30,7 +30,7 @@ Options:
     --ignore  x,y,z     Comma-separated list of targets to skip (mutually exclusive with --only)
     --only    x,y,z     Process only these targets (mutually exclusive with --ignore)
     --verbose, -v       Enable verbose logging
-    --profile=value     specifies the configuration profile to apply. Ignored when only 1 profile exists
+    --profile=value     Specifies the configuration profile to apply. Ignored when only 1 profile exists
 
 Examples:
     symlish status ~/dotfiles
@@ -49,14 +49,14 @@ sub parse_command {
     my ($command, @supported) = @_;
 
     # Handle help
-    if (!$command || $command eq 'help' || $command eq '--help' || $command eq '-h') {
+    if (!$command || $command eq 'help') {
         info ($USAGE);
         exit 0;
     }
 
     # Handle version
-    if($command eq 'version' || $command eq '--version' || $command eq '-v') {
-        info ("Symlish version $VERSION_MAJOR.$VERSION_MINOR.$VERSION_PATCH\n");
+    if($command eq 'version') {
+        info ("Symlish version $VERSION_MAJOR.$VERSION_MINOR.$VERSION_PATCH");
         exit 0;
     }
 

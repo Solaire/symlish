@@ -8,8 +8,9 @@ use strict;
 use warnings;
 
 use Test::More;
-use File::Temp qw(tempdir);
+
 use File::Spec;
+use File::Temp qw(tempdir);
 use File::Path qw(make_path);
 
 use FindBin qw($RealBin);
@@ -229,12 +230,12 @@ INI
 #=============================================================================
 # General tests
 #=============================================================================
-# General config validation tests. the rules ar the same for legacy and mixed
+# General config validation tests. the rules are the same for legacy and mixed
 # config types.
 #=============================================================================
 
 #=============================================================================
-# Test: Invalid INI syntax (unrecognized line)
+# Test: Invalid INI syntax (unrecognised line)
 #=============================================================================
 subtest 'Invalid INI syntax' => sub {
     my $dir = tempdir(CLEANUP => 1);
@@ -246,7 +247,7 @@ paths = ~/
 INI
 
     eval { load_config($dir) };
-    like($@, qr/Unrecognized line/i, 'Dies on unrecognized INI syntax');
+    like($@, qr/Unrecognised line/i, 'Dies on unrecognised INI syntax');
 };
 
 #=============================================================================

@@ -8,6 +8,7 @@ use strict;
 use warnings;
 
 use Test::More;
+
 use File::Temp qw(tempdir);
 use File::Spec;
 use File::Path qw(make_path);
@@ -123,7 +124,7 @@ subtest 'Environment variable expansion' => sub {
 #=============================================================================
 # Pin HOME (and USERPROFILE for the Windows fallback) to the tempdir so the
 # assertion below is deterministic regardless of the environment the test
-# is run in. Without this, an unset HOME on Winodws would compare undef vs 
+# is run in. Without this, an unset HOME on Windows would compare undef vs 
 # whatever the fallback produced.
 subtest 'Tilde expansion' => sub {
     my $tempdir = tempdir(CLEANUP => 1);

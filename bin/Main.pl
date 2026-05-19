@@ -19,7 +19,7 @@ use Symlish::Commands   qw(do_apply do_clean do_status);
 #   2. Load and validate symlish.conf.ini.
 #   3. Pick a top-level profile: auto-select when only one exists, otherwise
 #      require --profile.
-#   4. Build the per-entry LinkTarget list and apply --only / --ignore filter.s
+#   4. Build the per-entry LinkTarget list and apply --only / --ignore filters
 #   5. Dispatch each target to the specified command executor, skipping targets
 #      that have no valid destination or are flagged ignore=true.
 sub main {
