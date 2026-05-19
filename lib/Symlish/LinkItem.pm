@@ -8,8 +8,8 @@ use warnings;
 
 # new(%args) - Constructor for LinkItem.
 # Params (via %args):
-#   source - Absolute path to source file in dotfiles
-#   target - Absolute path to destination symlink location
+#   source - Absolute path to the file/directory the symlink will point AT.
+#   target - Absolute path where the symlink itself will be created.
 # Returns: Blessed LinkItem object
 sub new {
     my ($class, %args) = @_;
@@ -22,11 +22,11 @@ sub new {
     }, $class;
 }
 
-# Accessors - Read-only access to object properties
-# source() - Returns absolute path to source file in dotfiles
-# target() - Returns absolute path to symlink destination
-# backup() - Returns path to backup file (target + '.bak')
-# type()   - Returns 'file' or 'directory'
+# Accessors - Read-only access to object properties.
+# source() - Absolute path that the symlink points at
+# target() - Absolute path where the symlink lives (or will live)
+# backup() - Path of the saved-aside original at $target.bak
+# type()   - 'file' or 'directory', based on the source at construction time
 sub source { $_[0]->{source} }
 sub target { $_[0]->{target} }
 sub backup { $_[0]->{backup} }
@@ -99,7 +99,8 @@ sub restore_backup {
         or die "Failed to restore backup: $!";
 }
 
-# create_symlink() - Creates symlink from target to source.
+# create_symlink() - Creates a symlink at $self->target pointing to
+#   $self->source. Mirrors the syscall ordering: symlink(SRC, LINK).
 # Dies: If symlink creation fails
 sub create_symlink {
     my ($self) = @_;
