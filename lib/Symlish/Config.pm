@@ -7,12 +7,13 @@ use Exporter 'import';
 our @EXPORT_OK = qw(load_config);
 
 use Cwd qw(abs_path);
+use Symlish::Logger qw(info trace warning);
 use File::Spec;
 
 # load_config($directory) - Loads and validates symlish.conf.ini.
 # Params:
 #   $directory - Path to directory containing symlish.conf.ini
-# Returns: Hash ref with keys: config_path, config_dir, link
+# Returns: Hash ref with keys: path, dir, profiles
 # Dies: If config file missing, invalid syntax, or validation fails
 sub load_config {
     my ($directory) = @_;
@@ -23,49 +24,78 @@ sub load_config {
     die "ERROR: '$config_file' not found\n"
         unless -e $abs_config;
 
-    my $link = _parse_ini($abs_config);
-
-    die "ERROR: Invalid config; no target sections defined\n"
-        unless %$link;
+    my $config_ref = _parse_ini($abs_config);
 
     # Validate each entry
-    while (my ($name, $entry_ref) = each %$link) {
-        _validate_entry($name, $entry_ref);
+    while (my ($profile_name, $profile_ref) = each %$config_ref) {
+        warning ("'$profile_name' has no elements.")
+            if scalar keys %$profile_ref == 0;
+
+        while (my ($entry_name, $entry_ref) = each %$profile_ref) {
+            _validate_entry($entry_name, $entry_ref);
+        }
     }
 
     return {
-        config_path => $abs_config,
-        config_dir  => abs_path($directory),
-        link        => $link,
+        path     => $abs_config,
+        dir      => abs_path($directory),
+        profiles => $config_ref,
     };
 }
 
-# _parse_ini($file) - Parses an INI config file into a hash of sections.
-# Supports ; and # comments, [section] headers, and key = value pairs.
-# The special key 'paths' is split on commas into an array ref.
+# _parse_ini($file) - Parses an INI config file into a hash.
+# Recognised syntax:
+#   - '[[name]]'    Top-level profile header
+#   - '[name'       Config entry header; must follow a [[profile]] or trigger
+#                   implicit 'default' profile, but never both (see _validate_config)
+#   - 'key = value' Assignment (legal only inside a [name] entry)
+#   - ';' or '#'    Line comments and blank lines
 # Params:
 #   $file - Absolute path to the INI file
-# Returns: Hash ref mapping section name -> hash ref of key/value pairs
-# Dies: On unrecognized syntax or keys outside a section
+# Returns: Hash ref shaped as:
+#          { <profile> => { <entry> => { <key> = <value>, ... }, ... }, ... }
+# Dies: On unrecognised syntax, orphaned keys, or mixed implicit/explicit
+#       profile layout
 sub _parse_ini {
     my ($file) = @_;
 
     open my $fh, '<', $file or die "ERROR: Cannot open '$file': $!\n";
 
-    my %data;
-    my $section;
+    my $implicit_default = 0;
+    my $explicit_profile = 0;
+
+    my %data;    # Complete config data
+    my $profile; # Top-level profile, marked by '[[name]]'
+    my $entry;   # Config entry (bash, git, emacs, etc.) marked by '[name]'
 
     while (my $line = <$fh>) {
         chomp $line;
         $line =~ s/^\s+|\s+$//g;  # trim
 
-        next if $line eq '';        # blank line
+        next if $line eq '';       # blank line
         next if $line =~ /^[;#]/;  # comment
 
-        # Section header: [name]
+        # Profile header: [[name]]
+        if ($line =~ /^\[\[([^\]]+)\]\]$/) {
+            $explicit_profile = 1;
+            $profile = $1;
+            $entry = undef;
+            $data{$profile} //= {};
+            trace($profile);
+            next;
+        }
+
+        # Entry header: [name]
         if ($line =~ /^\[([^\]]+)\]$/) {
-            $section = $1;
-            $data{$section} //= {};
+            unless (defined $profile) {
+                $implicit_default = 1;
+                $profile = 'default';
+                $data{$profile} //= {};
+            }
+
+            $entry = $1;
+            $data{$profile}{$entry} //= {};
+            trace ("$profile: $entry", 2);
             next;
         }
 
@@ -74,16 +104,16 @@ sub _parse_ini {
             my ($key, $val) = ($1, $2);
             $val =~ s/\s+$//;  # rtrim value
 
-            die "ERROR: Key '$key' found outside of a section\n"
-                unless defined $section;
+            die "ERROR: orphaned key '$key'\n"
+                unless defined $entry;
 
             if ($key eq 'paths') {
                 # Split comma-separated list and trim each entry
                 my @paths = map { s/^\s+|\s+$//gr } split /,/, $val;
-                $data{$section}{paths} = \@paths;
+                $data{$profile}{$entry}{$key} = \@paths;
             }
             else {
-                $data{$section}{$key} = $val;
+                $data{$profile}{$entry}{$key} = $val;
             }
             next;
         }
@@ -92,6 +122,8 @@ sub _parse_ini {
     }
 
     close $fh;
+    _validate_config($implicit_default, $explicit_profile);
+
     return \%data;
 }
 
@@ -112,6 +144,14 @@ sub _validate_entry {
 
     die "ERROR: Invalid config entry '$name'; 'paths' must be an array\n"
         unless ref($entry_ref->{paths}) eq 'ARRAY';
+    
+    die "ERROR: Invalid config entry '$name'; 'paths' must contain at least one value\n"
+        unless @{ $entry_ref->{paths} };
+
+    for my $p (@{ $entry_ref->{paths} }) {
+        die "ERROR: Invalid config entry '$name'; 'paths' contains an empty value\n"
+            if $p eq '';
+    }
 
     die "ERROR: Invalid config entry '$name'; missing 'target'\n"
         unless exists $entry_ref->{target};
@@ -134,6 +174,39 @@ sub _validate_entry {
         }
     }
 
+    return 1;
+}
+
+# _validate_config($implicit_default, $explicit_profile) - Enforces the 
+# two valid config layouts:
+#   - LEGACY: only bare [entry] headers (implicit_default=1, explicit_profile=0)
+#   - MULTI:  only [[profile]] headers wrapping [entry] headers
+#             (implicit_default=0, explicit_profile=1)
+# Rejects two invalid cases:
+#   - empty config (both flags false)
+#   - mixed layout where [entry] appears before any [[profile]] and 
+#     [[profile]] also appears )both flags true
+# Params:
+#   $implicit_default - True if an implicit 'default' profile was created
+#                       because a bare [entry] preceded any [[profile]]
+#   $explicit_profile - True if at least one [[profile]] header was parsed
+# Returns: 1 on success
+# Dies: On empty or mixed layouts
+sub _validate_config {
+    my ($implicit_default, $explicit_profile) = @_;
+
+    die "ERROR: Invalid config; most likely empty\n"
+        unless $implicit_default || $explicit_profile;
+
+    die "ERROR: Invalid config; implicit and explicit profiles cannot be used together\n"
+        if $implicit_default && $explicit_profile;
+
+    trace ("Config type: legacy")
+        if $implicit_default && !$explicit_profile;
+
+    trace ("Config type: multi")
+        if !$implicit_default && $explicit_profile;
+    
     return 1;
 }
 

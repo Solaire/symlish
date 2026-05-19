@@ -138,7 +138,7 @@ subtest 'Full apply workflow' => sub {
     ok($config, 'Config loaded');
     
     # Build targets
-    my @targets = build_targets($config);
+    my @targets = build_targets($config, 'default');
     ok(scalar(@targets) >= 4, 'Multiple targets built');
     
     # Apply all targets
@@ -176,7 +176,7 @@ subtest 'Full clean workflow' => sub {
     my $mock = create_mock_dotfiles_repo();
     
     my $config = load_config($mock->{dotfiles});
-    my @targets = build_targets($config);
+    my @targets = build_targets($config, 'default');
     
     # Apply first
     for my $target (@targets) {
@@ -205,7 +205,7 @@ subtest 'Status reporting' => sub {
     my $mock = create_mock_dotfiles_repo();
     
     my $config = load_config($mock->{dotfiles});
-    my @targets = build_targets($config);
+    my @targets = build_targets($config, 'default');
     
     # Get bash target
     my ($bash_target) = grep { $_->key eq 'bash' } @targets;
@@ -235,7 +235,7 @@ subtest 'Backup and restore cycle' => sub {
     my $original_content = _read_file($bashrc);
     
     my $config = load_config($mock->{dotfiles});
-    my @targets = build_targets($config);
+    my @targets = build_targets($config, 'default');
     my ($bash_target) = grep { $_->key eq 'bash' } @targets;
     
     # Apply (should create backup)
@@ -261,7 +261,7 @@ subtest 'Filter with --only' => sub {
     my $mock = create_mock_dotfiles_repo();
     
     my $config = load_config($mock->{dotfiles});
-    my @targets = build_targets($config);
+    my @targets = build_targets($config, 'default');
     
     # Filter to only bash
     my @filtered = filter_targets(\@targets, { only => ['bash'] });
@@ -286,7 +286,7 @@ subtest 'Filter with --ignore' => sub {
     my $mock = create_mock_dotfiles_repo();
     
     my $config = load_config($mock->{dotfiles});
-    my @targets = build_targets($config);
+    my @targets = build_targets($config, 'default');
     
     # Ignore bash
     my @filtered = filter_targets(\@targets, { ignore => ['bash', 'emacs', 'empty'] });
@@ -316,7 +316,7 @@ subtest 'Dry-run safety' => sub {
     my $original_mtime = (stat($bashrc))[9];
     
     my $config = load_config($mock->{dotfiles});
-    my @targets = build_targets($config);
+    my @targets = build_targets($config, 'default');
     my ($bash_target) = grep { $_->key eq 'bash' } @targets;
     
     # Dry-run apply

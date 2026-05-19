@@ -30,11 +30,13 @@ Options:
     --ignore  x,y,z     Comma-separated list of targets to skip (mutually exclusive with --only)
     --only    x,y,z     Process only these targets (mutually exclusive with --ignore)
     --verbose, -v       Enable verbose logging
+    --profile=value     specifies the configuration profile to apply. Ignored when only 1 profile exists
 
 Examples:
     symlish status ~/dotfiles
     symlish apply ~/dotfiles --dry-run
     symlish clean ~/dotfiles --only git,bash
+    symlish apply ~/dotfiles --profile=editors
 USAGE
 
 # parse_command($command, @supported) - Validates the command argument.
@@ -86,7 +88,7 @@ sub parse_directory {
 # parse_options($argv_ref) - Parses command-line options.
 # Params:
 #   $argv_ref - Reference to @ARGV array
-# Returns: Hash of parsed options (dry-run, ignore, only, verbose)
+# Returns: Hash of parsed options (dry-run, ignore, only, verbose, profile)
 # Dies: If --ignore and --only are used together
 sub parse_options {
     my ($argv_ref) = @_;
@@ -102,6 +104,7 @@ sub parse_options {
         'ignore=s'  => \$options{ignore},
         'only=s'    => \$options{only},
         'verbose|v' => \$options{verbose},
+        'profile=s' => \$options{profile},
     ) or die $USAGE;
 
     # Validate mutually-exclusive options
