@@ -33,7 +33,7 @@ subtest 'Missing config file' => sub {
 #=============================================================================
 # Legacy config tests
 #=============================================================================
-# There test the pre-1.1.0 layout where the file is a flat list of 
+# These test the pre-1.1.0 layout where the file is a flat list of 
 # [entry] headers with no [[profile]] wrapper. Symlish wraps legacy config in
 # an implicit 'default' profile to ensure backwards compatibility.
 #=============================================================================

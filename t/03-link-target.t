@@ -119,11 +119,18 @@ subtest 'Environment variable expansion' => sub {
 #=============================================================================
 # Test: Tilde expansion
 #=============================================================================
+# Pin HOME (and USERPROFILE for the Windows fallback) to the tempdir so the
+# assertion below is deterministic regardless of the environment the test
+# is run in. Without this, an unset HOME on Winodws would compare undef vs 
+# whatever the fallback produced.
 subtest 'Tilde expansion' => sub {
     my $tempdir = tempdir(CLEANUP => 1);
     my $src_dir = File::Spec->catdir($tempdir, 'test');
     make_path($src_dir);
     _write_file(File::Spec->catfile($src_dir, 'file.txt'), 'test');
+
+    local $ENV{HOME}        = $tempdir;
+    local $ENV{USERPROFILE} = $tempdir;
     
     my $target = Symlish::LinkTarget->new(
         key => 'test',
@@ -134,7 +141,7 @@ subtest 'Tilde expansion' => sub {
         config_dir => $tempdir,
     );
     
-    is($target->path, $ENV{HOME}, 'Tilde expanded to HOME');
+    is($target->path, $tempdir, 'Tilde expanded to home directory');
 };
 
 #=============================================================================
@@ -232,6 +239,27 @@ subtest 'ignore flag' => sub {
 };
 
 #=============================================================================
+# Test: ignore-empty = false is honoured
+#=============================================================================
+subtest 'ignore-empty flag set to false' => sub {
+    my $tempdir = tempdir(CLEANUP => 1);
+    my $dest_dir = File::Spec->catdir($tempdir, 'dest');
+    make_path($dest_dir);
+    
+    my $target = Symlish::LinkTarget->new(
+        key => 'test',
+        entry => {
+            target          => 'test/*',
+            paths           => [$dest_dir],
+            'ignore-empty'  => 'false',
+        },
+        config_dir => $tempdir,
+    );
+    
+    ok(!$target->ignore_empty, 'ignore_empty is false when explicitly disabled');
+};
+
+#=============================================================================
 # Test: ignore-empty flag defaults to true
 #=============================================================================
 subtest 'ignore-empty flag defaults' => sub {
@@ -300,6 +328,166 @@ subtest 'Target path mapping' => sub {
         'Source path is correct');
     is($item->target, File::Spec->catfile($dest_dir, 'file.txt'), 
         'Target path strips source directory component');
+};
+
+#=============================================================================
+# Reverse config tests
+#=============================================================================
+# From 1.1.0, reverse config is supported, flipping the typical usage:
+# Source files live somewhere on the filesystem (e.g. /etc/something/*) and the
+# symlinks are created INSIDE a specified directory, "collecting" them 
+# in a central location. The 'paths' entry is then a subdirectory of $config_dir
+# rather than an absolute system location.
+#=============================================================================
+
+#=============================================================================
+# Test: Reverse config - absolute target, config-dir-relative path
+#=============================================================================
+subtest 'Reverse config: absolute target with single file' => sub {
+    my $tempdir = tempdir(CLEANUP => 1);
+
+    # External source: a file somewhere on the filesystem
+    my $external_dir = File::Spec->catdir($tempdir, 'external');
+    make_path($external_dir);
+    
+    my $source_file = File::Spec->catfile($external_dir, 'one.conf');
+    _write_file($source_file, 'content');
+
+    # Central location with a "collected" subdirectory to hold the symlinks
+    my $config_dir = File::Spec->catdir($tempdir, 'config_root');
+    my $collected  = File::Spec->catdir($config_dir, "collected");
+    make_path($collected);
+
+    my $target = Symlish::LinkTarget->new(
+        key => 'one',
+        entry => {
+            target => $source_file, # absolute path to a single file
+            paths  => [$collected],  # absolute dest for simplicity
+        },
+        config_dir => $config_dir,
+    );
+
+    ok($target->is_valid, 'is_valid for reverse-config target');
+    is($target->path, $collected, 'path resolved to the collected/ dir');
+
+    my @items = $target->items;
+    is(scalar @items, 1, 'single item built');
+    is($items[0]->source, $source_file, 'source is the absolute external path');
+    is($items[0]->target, File::Spec->catfile($collected, 'one.conf'), 
+        'target is collected/<basename>');
+};
+
+#=============================================================================
+# Test: Reverse config - absolute glob spanning multiple files
+#=============================================================================
+subtest 'Reverse config: absolute glob target' => sub {
+    my $tempdir = tempdir(CLEANUP => 1);
+
+    my $external_dir = File::Spec->catdir($tempdir, 'external');
+    make_path($external_dir);
+    _write_file(File::Spec->catfile($external_dir, 'a.conf'), 'a');
+    _write_file(File::Spec->catfile($external_dir, 'b.conf'), 'b');
+    _write_file(File::Spec->catfile($external_dir, 'c.conf'), 'c');
+
+    my $config_dir = File::Spec->catdir($tempdir, 'config_root');
+    my $collected  = File::Spec->catdir($config_dir, 'collected');
+    make_path($collected);
+
+    my $target = Symlish::LinkTarget->new(
+        key => 'glob',
+        entry => {
+            target => File::Spec->catfile($external_dir, '*'),
+            paths  => [$collected],
+        },
+        config_dir => $config_dir,
+    );
+
+    my @items = $target->items;
+    is(scalar @items, 3, 'three items built from glob');
+
+    my %sources = map { $_->source => 1} @items;
+    ok($sources{File::Spec->catfile($external_dir, 'a.conf')}, 'a.conf source');
+    ok($sources{File::Spec->catfile($external_dir, 'b.conf')}, 'b.conf source');
+    ok($sources{File::Spec->catfile($external_dir, 'c.conf')}, 'c.conf source');
+
+    # Destination should be flat under $collected (no preserved subtree)
+    my %dests = map { $_->target => 1} @items;
+    ok($dests{File::Spec->catfile($collected, 'a.conf')}, 'a.conf target');
+    ok($dests{File::Spec->catfile($collected, 'b.conf')}, 'b.conf target');
+    ok($dests{File::Spec->catfile($collected, 'c.conf')}, 'c.conf target');
+};
+
+#=============================================================================
+# Test: Reverse config - dotfile in absolute target
+#=============================================================================
+subtest 'Reverse config: dotfile included via absolute glob' => sub {
+    my $tempdir = tempdir(CLEANUP => 1);
+
+    my $external_dir = File::Spec->catdir($tempdir, 'external');
+    make_path($external_dir);
+
+    _write_file(File::Spec->catfile($external_dir, 'visible.txt'), 'v');
+    _write_file(File::Spec->catfile($external_dir, '.hidden'), 'h');
+
+    my $config_dir = File::Spec->catdir($tempdir, 'config_root');
+    my $collected  = File::Spec->catdir($config_dir, 'collected');
+    make_path($collected);
+
+    my $target = Symlish::LinkTarget->new(
+        key => 'mix',
+        entry => {
+            target => File::Spec->catfile($external_dir, '*'),
+            paths  => [$collected],
+        },
+        config_dir => $config_dir,
+    );
+
+    my @items = $target->items;
+    my %sources = map { $_->source => 1 } @items;
+
+    ok($sources{File::Spec->catfile($external_dir, 'visible.txt')}, 
+        'visible file included');
+    ok($sources{File::Spec->catfile($external_dir, '.hidden')}, 
+        'dotfile included via absolute glob');
+};
+
+#=============================================================================
+# Test: Reverse config - path relative to config_dir
+#=============================================================================
+subtest 'Reverse config - path relative to config_dir' => sub {
+    my $tempdir = tempdir(CLEANUP => 1);
+
+    my $external_dir = File::Spec->catdir($tempdir, 'external');
+    make_path($external_dir);
+    _write_file(File::Spec->catfile($external_dir, 'a.conf'), 'a');
+    _write_file(File::Spec->catfile($external_dir, 'b.conf'), 'b');
+
+    my $config_dir = File::Spec->catdir($tempdir, 'config_root');
+    my $collected  = File::Spec->catdir($config_dir, 'collected');
+    make_path($collected);
+
+    my $target = Symlish::LinkTarget->new(
+        key => 'rel',
+        entry => {
+            target => File::Spec->catfile($external_dir, '*'),
+            paths  => ['collected'], # relative, should resolve under $config_dir
+        },
+        config_dir => $config_dir,
+    );
+
+    ok($target->is_valid, 'is_valid for relative path resolved via config_dir');
+    is($target->path, $collected, 'relative path anchored to config_dir');
+
+    # Also test the full pipeline: items should reflect the resolved path,
+    # so destinations need to land under $collected, not under CWD/collected.
+    my @items = $target->items;
+    is(scalar @items, 2, 'two items materialised via the relative path');
+    
+    my %dests = map { $_->target => 1 } @items;
+    ok($dests{File::Spec->catfile($collected, 'a.conf')}, 
+        'a.conf destination under collected/');
+    ok($dests{File::Spec->catfile($collected, 'b.conf')}, 
+        'b.conf destination under collected/');
 };
 
 #=============================================================================
