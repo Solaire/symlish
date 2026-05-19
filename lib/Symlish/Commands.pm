@@ -6,7 +6,7 @@ use warnings;
 use Exporter 'import';
 our @EXPORT_OK = qw(do_link do_unlink do_status);
 
-use Symlish::Logger qw(format_line yellow gray cyan);
+use Symlish::Logger qw(info trace);
 
 # do_link($target, $options_ref) - Creates symlinks for a target.
 # Handles: skipping empty sources, conflict detection, backup creation.
@@ -18,13 +18,13 @@ sub do_link {
     my ($target, $options_ref) = @_;
 
     my $dry_run = $options_ref->{'dry-run'};
-    my (@yellow, @gray, @cyan);
+    my (@yellow, @grey, @cyan);
 
     for my $item ($target->items) {
 
         # Skip empty?
         if ($target->ignore_empty && $item->is_source_empty) {
-            push @yellow, format_line(2, "Skipping empty: ${ \$item->source }");
+            push @yellow, "Skipping empty: ${ \$item->source }";
             next
         }
 
@@ -37,10 +37,10 @@ sub do_link {
                 unless ($dry_run) {
                     $item->remove_symlink;
                 }
-                push @yellow, format_line(2, "Overwriting conflict: ${ \$item->target }");
+                push @yellow, "Overwriting conflict: ${ \$item->target }";
             }
             else {
-                push @yellow, format_line(2, "Conflict: ${ \$item->target } (symlink exists, skipping)");
+                push @yellow, "Conflict: ${ \$item->target } (symlink exists, skipping)";
                 next;
             }
         }
@@ -48,28 +48,28 @@ sub do_link {
         # Create backup if needed
         if ($item->can_backup and !$item->has_backup) {
             if ($dry_run) {
-                push @gray, format_line(2, "Would backup: ${ \$item->target }");
+                push @grey, "Would backup: ${ \$item->target }";
             } 
             else {
                 $item->create_backup;
-                push @cyan, format_line(2, "Backed up: ${ \$item->target }");
+                push @cyan, "Backed up: ${ \$item->target }";
             }
         }
 
         # Create the symlink
         if ($dry_run) {
-            push @gray, format_line(2, "Would link: ${ \$item->source } -> ${ \$item->target }");
+            push @grey, "Would link: ${ \$item->source } -> ${ \$item->target }";
         } 
         else {
             $item->create_symlink;
-            push @cyan, format_line(2, "Linked: ${ \$item->source } -> ${ \$item->target }");
+            push @cyan, "Linked: ${ \$item->source } -> ${ \$item->target }";
         }
     }
 
     # Print all statuses
-    print yellow($_) for @yellow;
-    print gray($_)   for @gray;
-    print cyan($_)   for @cyan;
+    info ($_, 'yellow', 2)  for @yellow;
+    info ($_, 'grey', 2)    for @grey;
+    info ($_, 'cyan', 2)    for @cyan;
 }
 
 # do_unlink($target, $options_ref) - Removes symlinks and restores backups.
@@ -82,7 +82,7 @@ sub do_unlink {
     my ($target, $options_ref) = @_;
 
     my $dry_run = $options_ref->{'dry-run'};
-    my (@yellow, @gray, @cyan);
+    my (@yellow, @grey, @cyan);
 
     for my $item ($target->items) {
         
@@ -91,30 +91,30 @@ sub do_unlink {
 
         # Remove the symlink
         if ($dry_run) {
-            push @gray, format_line(2, "Would unlink: ${ \$item->target }");
+            push @grey, "Would unlink: ${ \$item->target }";
         }
         else {
             $item->remove_symlink;
-            push @cyan, format_line(2, "Unlinked: ${ \$item->target }");
+            push @cyan, "Unlinked: ${ \$item->target }";
         }
 
         # Restore the backup if exists
         if ($item->has_backup) {
             if ($dry_run) {
-                push @gray, format_line(2, "Would restore: ${ \$item->backup }");
+                push @grey, "Would restore: ${ \$item->backup }";
             }
             else {
                 $item->restore_backup;
-                push @cyan, format_line(2, "Restored: ${ \$item->backup }");
+                push @cyan, "Restored: ${ \$item->backup }";
             }
         }
         
     }
 
     # Print all statuses
-    print yellow($_) for @yellow;
-    print gray($_)   for @gray;
-    print cyan($_)   for @cyan;
+    info ($_, 'yellow', 2)  for @yellow;
+    info ($_, 'grey', 2)    for @grey;
+    info ($_, 'cyan', 2)    for @cyan;
 }
 
 # do_status($target) - Displays current symlink status for a target.
@@ -124,39 +124,39 @@ sub do_unlink {
 sub do_status {
     my ($target) = @_;
 
-    my (@yellow, @gray, @cyan);
+    my (@yellow, @grey, @cyan);
 
     for my $item ($target->items) {
 
         # Skip empty?
         if ($target->ignore_empty && $item->is_source_empty) {
-            push @yellow, format_line(2, "Skipping empty: ${\$item->source}");
+            push @yellow, "Skipping empty: ${\$item->source}";
             next;
         }
 
         # Show backup status
         if ($item->has_backup) {
-            push @cyan, format_line(2, "Backup exists: ${ \$item->backup }");
+            push @cyan, "Backup exists: ${ \$item->backup }";
         }
             
 
         # Show link status
         if (!-l $item->target) {
-            push @gray, format_line(2, "${ \$item->source } (not linked)");
+            push @grey, "${ \$item->source } (not linked)";
         }
         elsif ($item->is_here) {
-            push @cyan, format_line(2, "${ \$item->target } -> ${ \$item->source }");
+            push @cyan, "${ \$item->target } -> ${ \$item->source }";
         }
         else {
             my $actual = readlink($item->target) // '(unknown)';
-            push @yellow, format_line(2, "${ \$item->target } -> $actual");
+            push @yellow, "${ \$item->target } -> $actual";
         }
     }
 
     # Print all statuses
-    print yellow($_) for @yellow;
-    print gray($_)   for @gray;
-    print cyan($_)   for @cyan;
+    info ($_, 'yellow', 2)  for @yellow;
+    info ($_, 'grey', 2)    for @grey;
+    info ($_, 'cyan', 2)    for @cyan;
 }
 
 1;

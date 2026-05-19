@@ -9,7 +9,7 @@ use lib "$RealBin/../lib";
 use Symlish::Options    qw(parse_command parse_directory parse_options);
 use Symlish::Config     qw(load_config);
 use Symlish::Targets    qw(build_targets filter_targets);
-use Symlish::Logger     qw(format_line yellow green);
+use Symlish::Logger     qw(info);
 use Symlish::Commands   qw(do_link do_unlink do_status);
 
 
@@ -31,15 +31,15 @@ sub main {
 
     # Process command
     for my $target (@targets) {
-        print green format_line(0, "Processing ${ \$target->key }");
+        info ("Processing ${ \$target->key }", 'green');
 
         unless ($target->is_valid) {
-            print yellow format_line(2, "Skipping: no valid destination path found");
+            info ("Skipping: no valid destination path found", 'yellow', 2);
             next;
         }
 
         if ($target->ignore) {
-            print yellow format_line(2, "Skipping: ignore flag is set");
+            info ("Skipping: ignore flag is set", 'yellow', 2);
             next;
         }
 
@@ -49,7 +49,7 @@ sub main {
         elsif ($command eq 'status') { do_status($target)              }
     }
 
-    print green format_line(0, "Done.");
+    info("Done", 'green');
 }
 
 main;
