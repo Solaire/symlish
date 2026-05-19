@@ -3,7 +3,6 @@
 # Usage:
 #   make test       - Run the test suite
 #   make install    - Install symlish globally (may require sudo)
-#   make upgrade    - Alias for install; safe to run over an existing install
 #   make uninstall  - Remove global installation
 #   make clean      - Remove generated files
 #
@@ -13,8 +12,6 @@
 #
 # For global installation you may need sudo:
 #   sudo make install
-
-SHELL := /bin/bash
 
 # Installation paths
 PREFIX      ?= /usr/local
@@ -33,18 +30,51 @@ PROVE       := prove
 CRITIC      := perlcritic
 TIDY        := perltidy
 
-# Colors for output
+# Colours for output
 RED    := \033[0;31m
 GREEN  := \033[0;32m
 YELLOW := \033[0;33m
 BLUE   := \033[0;34m
-NC     := \033[0m  # No Color
+NC     := \033[0m  # No Colour
 
-.PHONY: all test test-verbose test-file lint lint-strict tidy tidy-check \
-        install upgrade uninstall install-user uninstall-user run clean help
+.PHONY: help test test-verbose test-file lint lint-strict tidy tidy-check \
+        install uninstall install-user uninstall-user clean
 
-# Default target
-all: test
+#=============================================================================
+# Help
+#=============================================================================
+
+## Show this help message (default target)
+help:
+	@echo ""
+	@echo "Symlish Makefile"
+	@echo "================"
+	@echo ""
+	@echo "Usage: make [target]"
+	@echo ""
+	@echo "Targets:"
+	@echo "  test          Run the test suite"
+	@echo "  test-verbose  Run tests with verbose output"
+	@echo "  test-file     Run specific test (FILE=t/00-config.t)"
+	@echo ""
+	@echo "  lint          Run Perl::Critic (severity 4)  [requires Perl::Critic]"
+	@echo "  lint-strict   Run Perl::Critic (severity 3)  [requires Perl::Critic]"
+	@echo "  tidy          Format code with Perl::Tidy    [requires Perl::Tidy]"
+	@echo "  tidy-check    Check formatting without changes"
+	@echo ""
+	@echo "  install       Install globally to $(PREFIX) (may need sudo)"
+	@echo "  uninstall     Remove global installation"
+	@echo "  install-user  Install to ~/.local (no sudo)"
+	@echo "  uninstall-user Remove user installation"
+	@echo ""
+	@echo "  clean         Remove generated files"
+	@echo "  help          Show this help message"
+	@echo ""
+	@echo "Examples:"
+	@echo "  make test         # Run all tests"
+	@echo "  sudo make install # Install globally"
+	@echo "  make install-user # Install to ~/.local"
+	@echo ""
 
 #=============================================================================
 # Testing
@@ -128,9 +158,6 @@ install: test
 	@echo -e "$(GREEN)==> Installation complete!$(NC)"
 	@echo -e "    Run 'symlish help' to get started"
 
-## Upgrade an existing installation (alias for install)
-upgrade: install
-
 ## Remove global installation
 uninstall:
 	@echo -e "$(BLUE)==> Uninstalling symlish...$(NC)"
@@ -150,10 +177,6 @@ uninstall-user:
 # Development
 #=============================================================================
 
-## Run the application locally (usage: make run ARGS="link ~/dotfiles --dry-run")
-run:
-	@$(PERL) -Ilib $(SRC_BIN) $(ARGS)
-
 ## Clean generated files
 clean:
 	@echo -e "$(BLUE)==> Cleaning...$(NC)"
@@ -161,43 +184,3 @@ clean:
 	@rm -f $(SRC_BIN).bak
 	@rm -rf cover_db/
 	@echo -e "$(GREEN)==> Clean complete$(NC)"
-
-#=============================================================================
-# Help
-#=============================================================================
-
-## Show this help message
-help:
-	@echo ""
-	@echo "Symlish Makefile"
-	@echo "================"
-	@echo ""
-	@echo "Usage: make [target]"
-	@echo ""
-	@echo "Targets:"
-	@echo "  test          Run the test suite"
-	@echo "  test-verbose  Run tests with verbose output"
-	@echo "  test-file     Run specific test (FILE=t/00-config.t)"
-	@echo ""
-	@echo "  lint          Run Perl::Critic (severity 4)  [requires Perl::Critic]"
-	@echo "  lint-strict   Run Perl::Critic (severity 3)  [requires Perl::Critic]"
-	@echo "  tidy          Format code with Perl::Tidy    [requires Perl::Tidy]"
-	@echo "  tidy-check    Check formatting without changes"
-	@echo ""
-	@echo "  install       Install globally to $(PREFIX) (may need sudo)"
-	@echo "  upgrade       Upgrade an existing installation (alias for install)"
-	@echo "  uninstall     Remove global installation"
-	@echo "  install-user  Install to ~/.local (no sudo)"
-	@echo "  uninstall-user Remove user installation"
-	@echo ""
-	@echo "  run           Run locally (ARGS=\"link ~/dotfiles\")"
-	@echo "  clean         Remove generated files"
-	@echo "  help          Show this help message"
-	@echo ""
-	@echo "Examples:"
-	@echo "  make test                          # Run all tests"
-	@echo "  make run ARGS=\"status ~/dotfiles\" # Test locally"
-	@echo "  sudo make install                  # Install globally"
-	@echo "  sudo make upgrade                  # Upgrade existing install"
-	@echo "  make install-user                  # Install to ~/.local"
-	@echo ""

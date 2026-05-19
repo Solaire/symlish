@@ -15,22 +15,11 @@ use File::Path qw(make_path remove_tree);
 
 use FindBin qw($RealBin);
 use lib "$RealBin/../lib";
+use lib "$RealBin/lib";
 
 use Symlish::LinkTarget;
-use Symlish::Commands qw(do_link do_unlink do_status);
-
-# Capture STDOUT from a code block using only core modules.
-sub _capture {
-    my ($code) = @_;
-    my $output = '';
-    open(my $fh, '>', \$output) or die "Cannot create capture handle: $!";
-    my $old = select($fh);
-    eval { $code->() };
-    my $err = $@;
-    select($old);
-    die $err if $err;
-    return $output;
-}
+use Symlish::Commands qw(do_apply do_clean do_status);
+use SymlishTest qw(capture);
 
 #=============================================================================
 # Setup: Create a mock dotfiles structure
@@ -58,9 +47,9 @@ sub setup_mock_dotfiles {
 }
 
 #=============================================================================
-# Test: do_link creates symlinks
+# Test: do_apply creates symlinks
 #=============================================================================
-subtest 'do_link creates symlinks' => sub {
+subtest 'do_apply creates symlinks' => sub {
     my ($root, $dotfiles, $home) = setup_mock_dotfiles();
     
     my $target = Symlish::LinkTarget->new(
@@ -75,8 +64,8 @@ subtest 'do_link creates symlinks' => sub {
     my $options = { 'dry-run' => 0 };
     
     # Capture output
-    my $stdout = _capture(sub {
-        do_link($target, $options);
+    my $stdout = capture(sub {
+        do_apply($target, $options);
     });
     
     # Check symlinks were created
@@ -91,9 +80,9 @@ subtest 'do_link creates symlinks' => sub {
 };
 
 #=============================================================================
-# Test: do_link dry-run mode
+# Test: do_apply dry-run mode
 #=============================================================================
-subtest 'do_link dry-run mode' => sub {
+subtest 'do_apply dry-run mode' => sub {
     my ($root, $dotfiles, $home) = setup_mock_dotfiles();
     
     my $target = Symlish::LinkTarget->new(
@@ -108,8 +97,8 @@ subtest 'do_link dry-run mode' => sub {
     my $options = { 'dry-run' => 1 };
     
     # Capture output
-    my $stdout = _capture(sub {
-        do_link($target, $options);
+    my $stdout = capture(sub {
+        do_apply($target, $options);
     });
     
     # Check symlinks were NOT created
@@ -121,9 +110,9 @@ subtest 'do_link dry-run mode' => sub {
 };
 
 #=============================================================================
-# Test: do_link creates backup of existing files
+# Test: do_apply creates backup of existing files
 #=============================================================================
-subtest 'do_link creates backup' => sub {
+subtest 'do_apply creates backup' => sub {
     my ($root, $dotfiles, $home) = setup_mock_dotfiles();
     
     # Create existing .bashrc in home
@@ -141,7 +130,7 @@ subtest 'do_link creates backup' => sub {
     
     my $options = { 'dry-run' => 0 };
     
-    _capture(sub { do_link($target, $options) });
+    capture(sub { do_apply($target, $options) });
     
     # Check backup was created
     my $backup = "$existing_bashrc.bak";
@@ -153,9 +142,9 @@ subtest 'do_link creates backup' => sub {
 };
 
 #=============================================================================
-# Test: do_link skips empty files with ignore-empty
+# Test: do_apply skips empty files with ignore-empty
 #=============================================================================
-subtest 'do_link skips empty files' => sub {
+subtest 'do_apply skips empty files' => sub {
     my ($root, $dotfiles, $home) = setup_mock_dotfiles();
     
     my $target = Symlish::LinkTarget->new(
@@ -170,7 +159,7 @@ subtest 'do_link skips empty files' => sub {
     
     my $options = { 'dry-run' => 0 };
     
-    my $stdout = _capture(sub { do_link($target, $options) });
+    my $stdout = capture(sub { do_apply($target, $options) });
     
     # empty.txt should be skipped
     my $empty_link = File::Spec->catfile($home, 'empty.txt');
@@ -179,9 +168,9 @@ subtest 'do_link skips empty files' => sub {
 };
 
 #=============================================================================
-# Test: do_unlink removes symlinks
+# Test: do_clean removes symlinks
 #=============================================================================
-subtest 'do_unlink removes symlinks' => sub {
+subtest 'do_clean removes symlinks' => sub {
     my ($root, $dotfiles, $home) = setup_mock_dotfiles();
     
     my $target = Symlish::LinkTarget->new(
@@ -196,21 +185,21 @@ subtest 'do_unlink removes symlinks' => sub {
     my $options = { 'dry-run' => 0 };
     
     # First, create the links
-    _capture(sub { do_link($target, $options) });
+    capture(sub { do_apply($target, $options) });
     
     my $bashrc_link = File::Spec->catfile($home, '.bashrc');
-    ok(-l $bashrc_link, 'Symlink exists before unlink');
+    ok(-l $bashrc_link, 'Symlink exists before clean');
     
-    # Now unlink
-    _capture(sub { do_unlink($target, $options) });
+    # Now clean
+    capture(sub { do_clean($target, $options) });
     
-    ok(!-e $bashrc_link, 'Symlink removed after unlink');
+    ok(!-e $bashrc_link, 'Symlink removed after clean');
 };
 
 #=============================================================================
-# Test: do_unlink restores backups
+# Test: do_clean restores backups
 #=============================================================================
-subtest 'do_unlink restores backups' => sub {
+subtest 'do_clean restores backups' => sub {
     my ($root, $dotfiles, $home) = setup_mock_dotfiles();
     
     # Create existing .bashrc
@@ -228,12 +217,12 @@ subtest 'do_unlink restores backups' => sub {
     
     my $options = { 'dry-run' => 0 };
     
-    # Link (creates backup)
-    _capture(sub { do_link($target, $options) });
+    # Apply (creates backup)
+    capture(sub { do_apply($target, $options) });
     ok(-e "$bashrc.bak", 'Backup created');
     
-    # Unlink (restores backup)
-    _capture(sub { do_unlink($target, $options) });
+    # Clean (restores backup)
+    capture(sub { do_clean($target, $options) });
     
     ok(-e $bashrc, '.bashrc restored');
     ok(!-l $bashrc, '.bashrc is a regular file, not symlink');
@@ -242,9 +231,9 @@ subtest 'do_unlink restores backups' => sub {
 };
 
 #=============================================================================
-# Test: do_unlink dry-run mode
+# Test: do_clean dry-run mode
 #=============================================================================
-subtest 'do_unlink dry-run mode' => sub {
+subtest 'do_clean dry-run mode' => sub {
     my ($root, $dotfiles, $home) = setup_mock_dotfiles();
     
     my $target = Symlish::LinkTarget->new(
@@ -257,13 +246,13 @@ subtest 'do_unlink dry-run mode' => sub {
     );
     
     # Create links first
-    _capture(sub { do_link($target, { 'dry-run' => 0 }) });
+    capture(sub { do_apply($target, { 'dry-run' => 0 }) });
     
     my $bashrc_link = File::Spec->catfile($home, '.bashrc');
     ok(-l $bashrc_link, 'Symlink exists');
     
-    # Dry-run unlink
-    my $stdout = _capture(sub { do_unlink($target, { 'dry-run' => 1 }) });
+    # Dry-run clean
+    my $stdout = capture(sub { do_clean($target, { 'dry-run' => 1 }) });
     
     ok(-l $bashrc_link, 'Symlink still exists after dry-run');
     like($stdout, qr/Would unlink/, 'Dry-run output shows "Would unlink"');
@@ -285,21 +274,21 @@ subtest 'do_status shows status' => sub {
     );
     
     # Status before linking
-    my $stdout1 = _capture(sub { do_status($target) });
+    my $stdout1 = capture(sub { do_status($target) });
     like($stdout1, qr/not linked/, 'Shows "not linked" before linking');
     
-    # Create links
-    _capture(sub { do_link($target, { 'dry-run' => 0 }) });
+    # Apply
+    capture(sub { do_apply($target, { 'dry-run' => 0 }) });
     
     # Status after linking
-    my $stdout2 = _capture(sub { do_status($target) });
+    my $stdout2 = capture(sub { do_status($target) });
     like($stdout2, qr/->/, 'Shows arrow indicating symlink');
 };
 
 #=============================================================================
-# Test: do_link skips if already linked
+# Test: do_apply skips if already linked
 #=============================================================================
-subtest 'do_link skips already linked' => sub {
+subtest 'do_apply skips already linked' => sub {
     my ($root, $dotfiles, $home) = setup_mock_dotfiles();
     
     my $target = Symlish::LinkTarget->new(
@@ -313,9 +302,9 @@ subtest 'do_link skips already linked' => sub {
     
     my $options = { 'dry-run' => 0 };
     
-    # Link twice
-    _capture(sub { do_link($target, $options) });
-    my $stdout2 = _capture(sub { do_link($target, $options) });
+    # Apply twice
+    capture(sub { do_apply($target, $options) });
+    my $stdout2 = capture(sub { do_apply($target, $options) });
     
     # Second run should be quiet (links already exist)
     my $bashrc_link = File::Spec->catfile($home, '.bashrc');

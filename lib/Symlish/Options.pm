@@ -19,27 +19,27 @@ my $USAGE = <<'USAGE';
 Usage: symlish <command> <directory> [options]
 
 Commands:
-    link      Create symlinks from dotfiles to system locations
-    unlink    Remove symlinks and restore backups
+    apply     Create symlinks from dotfiles to system locations
+    clean     Remove symlinks and restore backups
     status    Show current symlink status
     help      Display this help message
     version   Show version number
 
 Options:
     --dry-run           Simulate without making changes
-    --ignore  x,y,z     Comma-separated list of targets to skip
+    --ignore  x,y,z     Comma-separated list of targets to skip (mutually exclusive with --only)
     --only    x,y,z     Process only these targets (mutually exclusive with --ignore)
     --verbose, -v       Enable verbose logging
 
 Examples:
     symlish status ~/dotfiles
-    symlish link ~/dotfiles --dry-run
-    symlish unlink ~/dotfiles --only git,bash
+    symlish apply ~/dotfiles --dry-run
+    symlish clean ~/dotfiles --only git,bash
 USAGE
 
 # parse_command($command, @supported) - Validates the command argument.
 # Params:
-#   $command   - The command string from CLI (e.g., 'link', 'unlink')
+#   $command   - The command string from CLI (e.g., 'apply', 'clean')
 #   @supported - List of valid command names
 # Returns: The validated command string
 # Dies: If command is invalid, or help or version is requested (exits 0 for help and version)

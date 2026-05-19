@@ -4,17 +4,18 @@ use strict;
 use warnings;
 
 use Exporter 'import';
-our @EXPORT_OK = qw(do_link do_unlink do_status);
+our @EXPORT_OK = qw(do_apply do_clean do_status);
 
 use Symlish::Logger qw(info trace);
 
-# do_link($target, $options_ref) - Creates symlinks for a target.
-# Handles: skipping empty sources, conflict detection, backup creation.
-# In dry-run mode, only prints what would be done.
+# do_apply($target, $options_ref) - Backend for the `apply` command:
+# creates symlinks for a target. Handles skipping empty sources, conflict
+# detection, and backup creation. In dry-run mode, only prints what would
+# be done.
 # Params:
 #   $target      - LinkTarget object
 #   $options_ref - Hash ref with 'dry-run' flag
-sub do_link {
+sub do_apply {
     my ($target, $options_ref) = @_;
 
     my $dry_run = $options_ref->{'dry-run'};
@@ -22,14 +23,14 @@ sub do_link {
 
     for my $item ($target->items) {
 
+        # If already linked, skip.
+        next if $item->is_here;
+
         # Skip empty?
         if ($target->ignore_empty && $item->is_source_empty) {
             push @yellow, "Skipping empty: ${ \$item->source }";
             next
         }
-
-        # If already linked, skip
-        next if $item->is_here;
 
         # Conflict: a symlink exists but points elsewhere
         if ($item->is_symlink) {
@@ -72,13 +73,14 @@ sub do_link {
     info ($_, 'cyan', 2)    for @cyan;
 }
 
-# do_unlink($target, $options_ref) - Removes symlinks and restores backups.
-# Only removes symlinks that point to our source files.
-# In dry-run mode, only prints what would be done.
+# do_clean($target, $options_ref) - Backend for the `clean` command:
+# removes symlinks and restores backups. Only removes symlinks that 
+# point to our source files. In dry-run mode, only prints what would be
+# done.
 # Params:
 #   $target      - LinkTarget object
 #   $options_ref - Hash ref with 'dry-run' flag
-sub do_unlink {
+sub do_clean {
     my ($target, $options_ref) = @_;
 
     my $dry_run = $options_ref->{'dry-run'};
@@ -117,8 +119,9 @@ sub do_unlink {
     info ($_, 'cyan', 2)    for @cyan;
 }
 
-# do_status($target) - Displays current symlink status for a target.
-# Shows: backup existence, link status (linked/not linked/wrong target).
+# do_status($target) - Backend for the `status` command:
+# displays current symlink status for a target showing: backup existence, 
+# link status (linked/not linked/wrong target).
 # Params:
 #   $target - LinkTarget object
 sub do_status {
