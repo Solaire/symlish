@@ -14,8 +14,10 @@ use File::Path qw(make_path remove_tree);
 
 use FindBin qw($RealBin);
 use lib "$RealBin/../lib";
+use lib "$RealBin/lib";
 
 use Symlish::LinkItem;
+use SymlishTest qw(write_file read_file);
 
 #=============================================================================
 # Test: Constructor creates object with correct attributes
@@ -26,7 +28,7 @@ subtest 'Constructor' => sub {
     my $target = File::Spec->catfile($tempdir, 'target.txt');
     
     # Create source file
-    _write_file($source, "test content");
+    write_file($source, "test content");
     
     my $item = Symlish::LinkItem->new(
         source => $source,
@@ -66,7 +68,7 @@ subtest 'is_here detection' => sub {
     my $source = File::Spec->catfile($tempdir, 'source.txt');
     my $target = File::Spec->catfile($tempdir, 'target.txt');
     
-    _write_file($source, "test");
+    write_file($source, "test");
     
     my $item = Symlish::LinkItem->new(
         source => $source,
@@ -83,7 +85,7 @@ subtest 'is_here detection' => sub {
     # Create symlink to different target
     unlink($target);
     my $other = File::Spec->catfile($tempdir, 'other.txt');
-    _write_file($other, "other");
+    write_file($other, "other");
     symlink($other, $target);
     ok(!$item->is_here, 'is_here returns false when link points elsewhere');
 };
@@ -96,7 +98,7 @@ subtest 'is_symlink detection' => sub {
     my $source = File::Spec->catfile($tempdir, 'source.txt');
     my $target = File::Spec->catfile($tempdir, 'target.txt');
     
-    _write_file($source, "test");
+    write_file($source, "test");
     
     my $item = Symlish::LinkItem->new(
         source => $source,
@@ -106,7 +108,7 @@ subtest 'is_symlink detection' => sub {
     ok(!$item->is_symlink, 'is_symlink false when target does not exist');
     
     # Create regular file at target
-    _write_file($target, "regular file");
+    write_file($target, "regular file");
     ok(!$item->is_symlink, 'is_symlink false for regular files');
     
     # Replace with symlink
@@ -123,8 +125,8 @@ subtest 'Backup operations' => sub {
     my $source = File::Spec->catfile($tempdir, 'source.txt');
     my $target = File::Spec->catfile($tempdir, 'target.txt');
     
-    _write_file($source, "source content");
-    _write_file($target, "original target content");
+    write_file($source, "source content");
+    write_file($target, "original target content");
     
     my $item = Symlish::LinkItem->new(
         source => $source,
@@ -140,7 +142,7 @@ subtest 'Backup operations' => sub {
     ok($item->has_backup, 'has_backup true after backup');
     ok(!-e $target, 'target file was renamed');
     ok(-e $item->backup, 'backup file exists');
-    is(_read_file($item->backup), "original target content", 
+    is(read_file($item->backup), "original target content", 
         'backup has original content');
 };
 
@@ -153,8 +155,8 @@ subtest 'Cannot backup symlinks' => sub {
     my $target = File::Spec->catfile($tempdir, 'target.txt');
     my $other = File::Spec->catfile($tempdir, 'other.txt');
     
-    _write_file($source, "source");
-    _write_file($other, "other");
+    write_file($source, "source");
+    write_file($other, "other");
     symlink($other, $target);
     
     my $item = Symlish::LinkItem->new(
@@ -173,8 +175,8 @@ subtest 'Restore backup' => sub {
     my $source = File::Spec->catfile($tempdir, 'source.txt');
     my $target = File::Spec->catfile($tempdir, 'target.txt');
     
-    _write_file($source, "source");
-    _write_file($target, "original");
+    write_file($source, "source");
+    write_file($target, "original");
     
     my $item = Symlish::LinkItem->new(
         source => $source,
@@ -188,7 +190,7 @@ subtest 'Restore backup' => sub {
     $item->restore_backup;
     ok(-e $target, 'target restored');
     ok(!-e $item->backup, 'backup file removed');
-    is(_read_file($target), "original", 'restored content is correct');
+    is(read_file($target), "original", 'restored content is correct');
 };
 
 #=============================================================================
@@ -199,7 +201,7 @@ subtest 'Create symlink' => sub {
     my $source = File::Spec->catfile($tempdir, 'source.txt');
     my $target = File::Spec->catfile($tempdir, 'target.txt');
     
-    _write_file($source, "source content");
+    write_file($source, "source content");
     
     my $item = Symlish::LinkItem->new(
         source => $source,
@@ -223,7 +225,7 @@ subtest 'Remove symlink' => sub {
     my $source = File::Spec->catfile($tempdir, 'source.txt');
     my $target = File::Spec->catfile($tempdir, 'target.txt');
     
-    _write_file($source, "source");
+    write_file($source, "source");
     symlink($source, $target);
     
     my $item = Symlish::LinkItem->new(
@@ -248,7 +250,7 @@ subtest 'is_source_empty for files' => sub {
     
     # Empty file
     my $empty_source = File::Spec->catfile($tempdir, 'empty.txt');
-    _write_file($empty_source, "");
+    write_file($empty_source, "");
     
     my $item1 = Symlish::LinkItem->new(
         source => $empty_source,
@@ -258,7 +260,7 @@ subtest 'is_source_empty for files' => sub {
     
     # Non-empty file
     my $nonempty_source = File::Spec->catfile($tempdir, 'nonempty.txt');
-    _write_file($nonempty_source, "content");
+    write_file($nonempty_source, "content");
     
     my $item2 = Symlish::LinkItem->new(
         source => $nonempty_source,
@@ -287,7 +289,7 @@ subtest 'is_source_empty for directories' => sub {
     # Non-empty directory
     my $nonempty_dir = File::Spec->catdir($tempdir, 'nonempty_dir');
     make_path($nonempty_dir);
-    _write_file(File::Spec->catfile($nonempty_dir, 'file.txt'), "content");
+    write_file(File::Spec->catfile($nonempty_dir, 'file.txt'), "content");
     
     my $item2 = Symlish::LinkItem->new(
         source => $nonempty_dir,
@@ -295,24 +297,5 @@ subtest 'is_source_empty for directories' => sub {
     );
     ok(!$item2->is_source_empty, 'Non-empty directory not detected as empty');
 };
-
-#=============================================================================
-# Helpers
-#=============================================================================
-sub _write_file {
-    my ($path, $content) = @_;
-    open my $fh, '>', $path or die "Cannot write $path: $!";
-    print $fh $content;
-    close $fh;
-}
-
-sub _read_file {
-    my ($path) = @_;
-    open my $fh, '<', $path or die "Cannot read $path: $!";
-    local $/;
-    my $content = <$fh>;
-    close $fh;
-    return $content;
-}
 
 done_testing();

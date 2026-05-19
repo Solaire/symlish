@@ -17,7 +17,7 @@ use lib "$RealBin/../lib";
 use lib "$RealBin/lib";
 
 use Symlish::Config qw(load_config);
-use SymlishTest qw(capture_warnings);
+use SymlishTest qw(capture_warnings write_ini);
 
 # Create a temporary test directory
 my $tempdir = tempdir(CLEANUP => 1);
@@ -43,7 +43,7 @@ subtest 'Missing config file' => sub {
 #=============================================================================
 subtest 'Legacy: Valid minimal config' => sub {
     my $dir = tempdir(CLEANUP => 1);
-    _write_ini($dir, <<'INI');
+    write_ini($dir, <<'INI');
 [bash]
 target = bash/*
 paths = ~/
@@ -65,7 +65,7 @@ INI
 #=============================================================================
 subtest 'Legacy: Multiple config entries' => sub {
     my $dir = tempdir(CLEANUP => 1);
-    _write_ini($dir, <<'INI');
+    write_ini($dir, <<'INI');
 [bash]
 target = bash/*
 paths = ~/
@@ -103,7 +103,7 @@ INI
 #=============================================================================
 subtest 'Multi: single top-level profile' => sub {
     my $dir = tempdir(CLEANUP => 1);
-    _write_ini($dir, <<'INI');
+    write_ini($dir, <<'INI');
 [[personal]]
 
 [bash]
@@ -130,7 +130,7 @@ INI
 #=============================================================================
 subtest 'Multi: multiple top-level profiles' => sub {
     my $dir = tempdir(CLEANUP => 1);
-    _write_ini($dir, <<'INI');
+    write_ini($dir, <<'INI');
 [[personal]]
 
 [bash]
@@ -164,7 +164,7 @@ INI
 # entry; missing 'paths', invalid 'conflict', etc. all still die.
 subtest 'Multi: entry-level validation still applies' => sub {
     my $dir = tempdir(CLEANUP => 1);
-    _write_ini($dir, <<'INI');
+    write_ini($dir, <<'INI');
 [[personal]]
 
 [bash]
@@ -183,7 +183,7 @@ INI
 # does not die.
 subtest 'Multi: empty profile is accepted with warning' => sub {
     my $dir = tempdir(CLEANUP => 1);
-    _write_ini($dir, <<'INI');
+    write_ini($dir, <<'INI');
 [[personal]]
 INI
 
@@ -209,7 +209,7 @@ INI
 #=============================================================================
 subtest 'Mixed: bare [entry] then [[profile]] is rejected' => sub {
     my $dir = tempdir(CLEANUP => 1);
-    _write_ini($dir, <<'INI');
+    write_ini($dir, <<'INI');
 [bash]
 target = bash/*
 paths = ~/
@@ -238,7 +238,7 @@ INI
 #=============================================================================
 subtest 'Invalid INI syntax' => sub {
     my $dir = tempdir(CLEANUP => 1);
-    _write_ini($dir, <<'INI');
+    write_ini($dir, <<'INI');
 [bash]
 target = bash/*
 this is not valid ini syntax
@@ -254,7 +254,7 @@ INI
 #=============================================================================
 subtest 'Empty config' => sub {
     my $dir = tempdir(CLEANUP => 1);
-    _write_ini($dir, <<'INI');
+    write_ini($dir, <<'INI');
 ; Just a comment, no entries
 INI
 
@@ -267,7 +267,7 @@ INI
 #=============================================================================
 subtest 'Key outside any entry' => sub {
     my $dir = tempdir(CLEANUP => 1);
-    _write_ini($dir, <<'INI');
+    write_ini($dir, <<'INI');
 orphan_key = some_value
 
 [bash]
@@ -284,7 +284,7 @@ INI
 #=============================================================================
 subtest 'Entry missing paths' => sub {
     my $dir = tempdir(CLEANUP => 1);
-    _write_ini($dir, <<'INI');
+    write_ini($dir, <<'INI');
 [bash]
 target = bash/*
 INI
@@ -298,7 +298,7 @@ INI
 #=============================================================================
 subtest 'Entry missing target' => sub {
     my $dir = tempdir(CLEANUP => 1);
-    _write_ini($dir, <<'INI');
+    write_ini($dir, <<'INI');
 [bash]
 paths = ~/
 INI
@@ -312,7 +312,7 @@ INI
 #=============================================================================
 subtest 'Paths are parsed as an array' => sub {
     my $dir = tempdir(CLEANUP => 1);
-    _write_ini($dir, <<'INI');
+    write_ini($dir, <<'INI');
 [vscode]
 target = vscode/*
 paths = $APPDATA/Code/, ~/.config/Code/
@@ -332,7 +332,7 @@ INI
 #=============================================================================
 subtest 'Invalid conflict value' => sub {
     my $dir = tempdir(CLEANUP => 1);
-    _write_ini($dir, <<'INI');
+    write_ini($dir, <<'INI');
 [bash]
 target = bash/*
 conflict = invalid_value
@@ -348,7 +348,7 @@ INI
 #=============================================================================
 subtest 'Valid conflict values' => sub {
     my $dir = tempdir(CLEANUP => 1);
-    _write_ini($dir, <<'INI');
+    write_ini($dir, <<'INI');
 [bash]
 target = bash/*
 conflict = skip
@@ -373,7 +373,7 @@ subtest 'Boolean validation for ignore' => sub {
     # Parser stores the raw string
     # _to_bool in LinkTarget does the actual true/false interpolation later.
     for my $val (qw(true false 0 1 True FALSE)) {
-        _write_ini($dir, <<"INI");
+        write_ini($dir, <<"INI");
 [bash]
 target = bash/*
 ignore = $val
@@ -395,7 +395,7 @@ subtest 'Boolean validation for ignore-empty' => sub {
     # Parser stores the raw string
     # _to_bool in LinkTarget does the actual true/false interpolation later.
     for my $val (qw(true false 0 1)) {
-        _write_ini($dir, <<"INI");
+        write_ini($dir, <<"INI");
 [bash]
 target = bash/*
 ignore-empty = $val
@@ -415,7 +415,7 @@ subtest 'empty "paths" is rejected' => sub {
     my $dir = tempdir(CLEANUP => 1);
 
     # No value at all
-    _write_ini($dir, <<'INI');
+    write_ini($dir, <<'INI');
 [bash]
 target = bash/*
 paths = 
@@ -432,7 +432,7 @@ subtest 'empty element "paths" is rejected' => sub {
     my $dir = tempdir(CLEANUP => 1);
 
     # No value at all
-    _write_ini($dir, <<'INI');
+    write_ini($dir, <<'INI');
 [bash]
 target = bash/*
 paths = ~/, , ~/.config/
@@ -447,7 +447,7 @@ INI
 #=============================================================================
 subtest 'Comments and blank lines are ignored' => sub {
     my $dir = tempdir(CLEANUP => 1);
-    _write_ini($dir, <<'INI');
+    write_ini($dir, <<'INI');
 ; This is a semicolon comment
 # This is a hash comment
 
@@ -461,17 +461,6 @@ INI
     eval { load_config($dir) };
     ok(!$@, 'Config with comments and blank lines loads without error') or diag $@;
 };
-
-#=============================================================================
-# Helper: Write INI config file
-#=============================================================================
-sub _write_ini {
-    my ($dir, $content) = @_;
-    my $file = File::Spec->catfile($dir, 'symlish.conf.ini');
-    open my $fh, '>', $file or die "Cannot write $file: $!";
-    print $fh $content;
-    close $fh;
-}
 
 done_testing();
 
