@@ -19,7 +19,7 @@ use lib "$RealBin/lib";
 
 use Symlish::LinkTarget;
 use Symlish::Commands qw(do_apply do_clean do_status);
-use SymlishTest qw(capture);
+use SymlishTest qw(capture write_file read_file);
 
 #=============================================================================
 # Setup: Create a mock dotfiles structure
@@ -33,11 +33,11 @@ sub setup_mock_dotfiles {
     make_path($bash_dir);
     
     # Create some dotfiles
-    _write_file(File::Spec->catfile($bash_dir, '.bashrc'), 
+    write_file(File::Spec->catfile($bash_dir, '.bashrc'), 
         "# My bashrc\nalias ll='ls -la'\n");
-    _write_file(File::Spec->catfile($bash_dir, '.bash_profile'), 
+    write_file(File::Spec->catfile($bash_dir, '.bash_profile'), 
         "# Bash profile\n");
-    _write_file(File::Spec->catfile($bash_dir, 'empty.txt'), '');
+    write_file(File::Spec->catfile($bash_dir, 'empty.txt'), '');
     
     # Create destination directory (simulating home)
     my $home = File::Spec->catdir($root, 'home');
@@ -117,7 +117,7 @@ subtest 'do_apply creates backup' => sub {
     
     # Create existing .bashrc in home
     my $existing_bashrc = File::Spec->catfile($home, '.bashrc');
-    _write_file($existing_bashrc, "# Original bashrc content\n");
+    write_file($existing_bashrc, "# Original bashrc content\n");
     
     my $target = Symlish::LinkTarget->new(
         key => 'bash',
@@ -135,7 +135,7 @@ subtest 'do_apply creates backup' => sub {
     # Check backup was created
     my $backup = "$existing_bashrc.bak";
     ok(-e $backup, 'Backup file created');
-    like(_read_file($backup), qr/Original bashrc/, 'Backup has original content');
+    like(read_file($backup), qr/Original bashrc/, 'Backup has original content');
     
     # Check new symlink exists
     ok(-l $existing_bashrc, '.bashrc is now a symlink');
@@ -204,7 +204,7 @@ subtest 'do_clean restores backups' => sub {
     
     # Create existing .bashrc
     my $bashrc = File::Spec->catfile($home, '.bashrc');
-    _write_file($bashrc, "# Original content\n");
+    write_file($bashrc, "# Original content\n");
     
     my $target = Symlish::LinkTarget->new(
         key => 'bash',
@@ -227,7 +227,7 @@ subtest 'do_clean restores backups' => sub {
     ok(-e $bashrc, '.bashrc restored');
     ok(!-l $bashrc, '.bashrc is a regular file, not symlink');
     ok(!-e "$bashrc.bak", 'Backup removed');
-    like(_read_file($bashrc), qr/Original content/, 'Original content restored');
+    like(read_file($bashrc), qr/Original content/, 'Original content restored');
 };
 
 #=============================================================================
@@ -282,7 +282,7 @@ subtest 'do_status shows status' => sub {
     
     # Status after linking
     my $stdout2 = capture(sub { do_status($target) });
-    like($stdout2, qr/->/, 'Shows arrow indicating symlink');
+    like($stdout2, qr{\S+\s*->\s*\S+}, 'Shows <target> -> <source> arrow');
 };
 
 #=============================================================================
@@ -315,24 +315,5 @@ subtest 'do_apply skips already linked' => sub {
         File::Spec->catfile($dotfiles, 'bash', '.bashrc'),
         'Symlink unchanged after re-run');
 };
-
-#=============================================================================
-# Helpers
-#=============================================================================
-sub _write_file {
-    my ($path, $content) = @_;
-    open my $fh, '>', $path or die "Cannot write $path: $!";
-    print $fh $content;
-    close $fh;
-}
-
-sub _read_file {
-    my ($path) = @_;
-    open my $fh, '<', $path or die "Cannot read $path: $!";
-    local $/;
-    my $content = <$fh>;
-    close $fh;
-    return $content;
-}
 
 done_testing();

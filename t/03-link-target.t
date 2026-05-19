@@ -14,8 +14,10 @@ use File::Path qw(make_path);
 
 use FindBin qw($RealBin);
 use lib "$RealBin/../lib";
+use lib "$RealBin/lib";
 
 use Symlish::LinkTarget;
+use SymlishTest qw(write_file);
 
 #=============================================================================
 # Test: Constructor creates object
@@ -27,7 +29,7 @@ subtest 'Constructor' => sub {
     
     make_path($dest_dir);
     make_path($src_dir);
-    _write_file(File::Spec->catfile($src_dir, '.bashrc'), 'test');
+    write_file(File::Spec->catfile($src_dir, '.bashrc'), 'test');
     
     my $target = Symlish::LinkTarget->new(
         key => 'bash',
@@ -56,7 +58,7 @@ subtest 'Path resolution - first valid wins' => sub {
     # Only create second_dir
     make_path($second_dir);
     make_path($src_dir);
-    _write_file(File::Spec->catfile($src_dir, 'file.txt'), 'test');
+    write_file(File::Spec->catfile($src_dir, 'file.txt'), 'test');
     
     my $target = Symlish::LinkTarget->new(
         key => 'test',
@@ -98,7 +100,7 @@ subtest 'Environment variable expansion' => sub {
     my $tempdir = tempdir(CLEANUP => 1);
     my $src_dir = File::Spec->catdir($tempdir, 'test');
     make_path($src_dir);
-    _write_file(File::Spec->catfile($src_dir, 'file.txt'), 'test');
+    write_file(File::Spec->catfile($src_dir, 'file.txt'), 'test');
     
     # Set environment variable
     local $ENV{TEST_SYMLISH_PATH} = $tempdir;
@@ -127,7 +129,7 @@ subtest 'Tilde expansion' => sub {
     my $tempdir = tempdir(CLEANUP => 1);
     my $src_dir = File::Spec->catdir($tempdir, 'test');
     make_path($src_dir);
-    _write_file(File::Spec->catfile($src_dir, 'file.txt'), 'test');
+    write_file(File::Spec->catfile($src_dir, 'file.txt'), 'test');
 
     local $ENV{HOME}        = $tempdir;
     local $ENV{USERPROFILE} = $tempdir;
@@ -154,9 +156,9 @@ subtest 'Glob expansion - single asterisk' => sub {
     
     make_path($dest_dir);
     make_path($src_dir);
-    _write_file(File::Spec->catfile($src_dir, '.bashrc'), 'bashrc');
-    _write_file(File::Spec->catfile($src_dir, '.bash_profile'), 'profile');
-    _write_file(File::Spec->catfile($src_dir, 'visible.txt'), 'visible');
+    write_file(File::Spec->catfile($src_dir, '.bashrc'), 'bashrc');
+    write_file(File::Spec->catfile($src_dir, '.bash_profile'), 'profile');
+    write_file(File::Spec->catfile($src_dir, 'visible.txt'), 'visible');
     
     my $target = Symlish::LinkTarget->new(
         key => 'bash',
@@ -186,8 +188,8 @@ subtest 'Dotfiles are included' => sub {
     
     make_path($dest_dir);
     make_path($src_dir);
-    _write_file(File::Spec->catfile($src_dir, '.bashrc'), 'bashrc');
-    _write_file(File::Spec->catfile($src_dir, '.profile'), 'profile');
+    write_file(File::Spec->catfile($src_dir, '.bashrc'), 'bashrc');
+    write_file(File::Spec->catfile($src_dir, '.profile'), 'profile');
     
     my $target = Symlish::LinkTarget->new(
         key => 'bash',
@@ -309,7 +311,7 @@ subtest 'Target path mapping' => sub {
     
     make_path($dest_dir);
     make_path($src_dir);
-    _write_file(File::Spec->catfile($src_dir, 'file.txt'), 'test');
+    write_file(File::Spec->catfile($src_dir, 'file.txt'), 'test');
     
     my $target = Symlish::LinkTarget->new(
         key => 'config',
@@ -351,7 +353,7 @@ subtest 'Reverse config: absolute target with single file' => sub {
     make_path($external_dir);
     
     my $source_file = File::Spec->catfile($external_dir, 'one.conf');
-    _write_file($source_file, 'content');
+    write_file($source_file, 'content');
 
     # Central location with a "collected" subdirectory to hold the symlinks
     my $config_dir = File::Spec->catdir($tempdir, 'config_root');
@@ -385,9 +387,9 @@ subtest 'Reverse config: absolute glob target' => sub {
 
     my $external_dir = File::Spec->catdir($tempdir, 'external');
     make_path($external_dir);
-    _write_file(File::Spec->catfile($external_dir, 'a.conf'), 'a');
-    _write_file(File::Spec->catfile($external_dir, 'b.conf'), 'b');
-    _write_file(File::Spec->catfile($external_dir, 'c.conf'), 'c');
+    write_file(File::Spec->catfile($external_dir, 'a.conf'), 'a');
+    write_file(File::Spec->catfile($external_dir, 'b.conf'), 'b');
+    write_file(File::Spec->catfile($external_dir, 'c.conf'), 'c');
 
     my $config_dir = File::Spec->catdir($tempdir, 'config_root');
     my $collected  = File::Spec->catdir($config_dir, 'collected');
@@ -426,8 +428,8 @@ subtest 'Reverse config: dotfile included via absolute glob' => sub {
     my $external_dir = File::Spec->catdir($tempdir, 'external');
     make_path($external_dir);
 
-    _write_file(File::Spec->catfile($external_dir, 'visible.txt'), 'v');
-    _write_file(File::Spec->catfile($external_dir, '.hidden'), 'h');
+    write_file(File::Spec->catfile($external_dir, 'visible.txt'), 'v');
+    write_file(File::Spec->catfile($external_dir, '.hidden'), 'h');
 
     my $config_dir = File::Spec->catdir($tempdir, 'config_root');
     my $collected  = File::Spec->catdir($config_dir, 'collected');
@@ -459,8 +461,8 @@ subtest 'Reverse config - path relative to config_dir' => sub {
 
     my $external_dir = File::Spec->catdir($tempdir, 'external');
     make_path($external_dir);
-    _write_file(File::Spec->catfile($external_dir, 'a.conf'), 'a');
-    _write_file(File::Spec->catfile($external_dir, 'b.conf'), 'b');
+    write_file(File::Spec->catfile($external_dir, 'a.conf'), 'a');
+    write_file(File::Spec->catfile($external_dir, 'b.conf'), 'b');
 
     my $config_dir = File::Spec->catdir($tempdir, 'config_root');
     my $collected  = File::Spec->catdir($config_dir, 'collected');
@@ -489,15 +491,5 @@ subtest 'Reverse config - path relative to config_dir' => sub {
     ok($dests{File::Spec->catfile($collected, 'b.conf')}, 
         'b.conf destination under collected/');
 };
-
-#=============================================================================
-# Helper
-#=============================================================================
-sub _write_file {
-    my ($path, $content) = @_;
-    open my $fh, '>', $path or die "Cannot write $path: $!";
-    print $fh $content;
-    close $fh;
-}
 
 done_testing();

@@ -19,7 +19,7 @@ use lib "$RealBin/lib";
 use Symlish::Config qw(load_config);
 use Symlish::Targets qw(build_targets filter_targets);
 use Symlish::Commands qw(do_apply do_clean do_status);
-use SymlishTest qw(capture);
+use SymlishTest qw(capture write_file read_file);
 
 #=============================================================================
 # Setup: Create a complete mock dotfiles repository
@@ -34,7 +34,7 @@ sub create_mock_dotfiles_repo {
     # Create bash configs
     my $bash_dir = File::Spec->catdir($dotfiles, 'bash');
     make_path($bash_dir);
-    _write_file(File::Spec->catfile($bash_dir, '.bashrc'), <<'BASH');
+    write_file(File::Spec->catfile($bash_dir, '.bashrc'), <<'BASH');
 # ~/.bashrc - Bash configuration
 export EDITOR=vim
 alias ll='ls -la'
@@ -44,7 +44,7 @@ alias gs='git status'
 [ -f ~/.bashrc.local ] && source ~/.bashrc.local
 BASH
 
-    _write_file(File::Spec->catfile($bash_dir, '.bash_profile'), <<'PROFILE');
+    write_file(File::Spec->catfile($bash_dir, '.bash_profile'), <<'PROFILE');
 # ~/.bash_profile
 [[ -f ~/.bashrc ]] && source ~/.bashrc
 PROFILE
@@ -52,7 +52,7 @@ PROFILE
     # Create git configs
     my $git_dir = File::Spec->catdir($dotfiles, 'git');
     make_path($git_dir);
-    _write_file(File::Spec->catfile($git_dir, '.gitconfig'), <<'GIT');
+    write_file(File::Spec->catfile($git_dir, '.gitconfig'), <<'GIT');
 [user]
     name = Test User
     email = test@example.com
@@ -66,25 +66,25 @@ GIT
     # Create vscode configs (with subdirectory)
     my $vscode_dir = File::Spec->catdir($dotfiles, 'vscode');
     make_path($vscode_dir);
-    _write_file(File::Spec->catfile($vscode_dir, 'settings.json'), <<'JSON');
+    write_file(File::Spec->catfile($vscode_dir, 'settings.json'), <<'JSON');
 {
     "editor.fontSize": 14,
     "editor.tabSize": 4
 }
 JSON
-    _write_file(File::Spec->catfile($vscode_dir, 'keybindings.json'), <<'JSON');
+    write_file(File::Spec->catfile($vscode_dir, 'keybindings.json'), <<'JSON');
 []
 JSON
 
     # Create an ignored config
     my $emacs_dir = File::Spec->catdir($dotfiles, 'emacs');
     make_path($emacs_dir);
-    _write_file(File::Spec->catfile($emacs_dir, '.emacs'), "; Emacs config\n");
+    write_file(File::Spec->catfile($emacs_dir, '.emacs'), "; Emacs config\n");
 
     # Create empty file to test ignore-empty
     my $empty_dir = File::Spec->catdir($dotfiles, 'empty');
     make_path($empty_dir);
-    _write_file(File::Spec->catfile($empty_dir, 'placeholder.txt'), '');
+    write_file(File::Spec->catfile($empty_dir, 'placeholder.txt'), '');
 
     # Create mock home directory
     my $home = File::Spec->catdir($root, 'home');
@@ -95,7 +95,7 @@ JSON
     make_path($vscode_home);
     
     # Write symlish.conf.ini
-    _write_file(File::Spec->catfile($dotfiles, 'symlish.conf.ini'), <<"INI");
+    write_file(File::Spec->catfile($dotfiles, 'symlish.conf.ini'), <<"INI");
 [bash]
 target = bash/*
 paths = $home
@@ -220,7 +220,7 @@ subtest 'Status reporting' => sub {
     
     # Status after creating symlinks
     my $after = capture(sub { do_status($bash_target) });
-    like($after, qr/->/, 'Status shows symlink arrow after');
+    like($after, qr{\S+\s*->\s*\S+}, 'Status shows <target> -> <source> arrow');
 };
 
 #=============================================================================
@@ -231,8 +231,8 @@ subtest 'Backup and restore cycle' => sub {
     
     # Create existing .bashrc
     my $bashrc = File::Spec->catfile($mock->{home}, '.bashrc');
-    _write_file($bashrc, "# My original bashrc\necho 'Hello'\n");
-    my $original_content = _read_file($bashrc);
+    write_file($bashrc, "# My original bashrc\necho 'Hello'\n");
+    my $original_content = read_file($bashrc);
     
     my $config = load_config($mock->{dotfiles});
     my @targets = build_targets($config, 'default');
@@ -243,7 +243,7 @@ subtest 'Backup and restore cycle' => sub {
     
     ok(-l $bashrc, '.bashrc is now a symlink');
     ok(-e "$bashrc.bak", 'Backup was created');
-    is(_read_file("$bashrc.bak"), $original_content, 'Backup has original content');
+    is(read_file("$bashrc.bak"), $original_content, 'Backup has original content');
     
     # Clean (should restore backup)
     capture(sub { do_clean($bash_target, { 'dry-run' => 0 }) });
@@ -251,7 +251,7 @@ subtest 'Backup and restore cycle' => sub {
     ok(-e $bashrc, '.bashrc exists after unlink');
     ok(!-l $bashrc, '.bashrc is not a symlink');
     ok(!-e "$bashrc.bak", 'Backup was removed');
-    is(_read_file($bashrc), $original_content, 'Original content restored');
+    is(read_file($bashrc), $original_content, 'Original content restored');
 };
 
 #=============================================================================
@@ -312,7 +312,7 @@ subtest 'Dry-run safety' => sub {
     
     # Create existing file
     my $bashrc = File::Spec->catfile($mock->{home}, '.bashrc');
-    _write_file($bashrc, "# Original\n");
+    write_file($bashrc, "# Original\n");
     my $original_mtime = (stat($bashrc))[9];
     
     my $config = load_config($mock->{dotfiles});
@@ -338,24 +338,5 @@ subtest 'Dry-run safety' => sub {
     ok(-e "$bashrc.bak", 'Backup still exists');
     like($out2, qr/Would/, 'Clean output says "Would"');
 };
-
-#=============================================================================
-# Helpers
-#=============================================================================
-sub _write_file {
-    my ($path, $content) = @_;
-    open my $fh, '>', $path or die "Cannot write $path: $!";
-    print $fh $content;
-    close $fh;
-}
-
-sub _read_file {
-    my ($path) = @_;
-    open my $fh, '<', $path or die "Cannot read $path: $!";
-    local $/;
-    my $content = <$fh>;
-    close $fh;
-    return $content;
-}
 
 done_testing();
